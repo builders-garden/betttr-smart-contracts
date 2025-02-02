@@ -7,6 +7,37 @@ import { expect } from "chai";
 import hre from "hardhat";
 import { ERC20ABI } from "./ERC20ABI";
 
+async function createControllerSignature(
+  params: {
+    idBet: string;
+    amountOut: string;
+    quoteTimestamp: number;
+    exclusivityDeadline: number;
+    exclusivityRelayer: string;
+    onlyWithdraw: boolean;
+    sentinelAddress: string;
+  }
+) {
+  // Construct the message in the same way as the contract
+  const message = hre.ethers.solidityPacked(
+    ["uint256", "uint256", "uint32", "uint32", "address", "bool", "address"],
+    [
+      params.idBet,
+      params.amountOut,
+      params.quoteTimestamp,
+      params.exclusivityDeadline,
+      params.exclusivityRelayer,
+      params.onlyWithdraw,
+      params.sentinelAddress,
+    ]
+  );
+
+  // Create the hash
+  const messageHash = hre.ethers.keccak256(message);
+
+  return messageHash;
+}
+
 describe("Sentinel", function () {
   // We define a fixture to reuse the same setup in every test.
   // We use loadFixture to run this setup once, snapshot that state,
@@ -20,9 +51,9 @@ describe("Sentinel", function () {
     const controller = account1.address;
     const operator = account2.address;
     const swapRouter = "0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45";
-    const lp = "0x7043E4e1c4045424858ECBCED80989FeAfC11B36"; 
+    const lp = "0x7043E4e1c4045424858ECBCED80989FeAfC11B36";
     //const lp = "0x3528186476fd0ea0adc9fccc41de4cd138f99653"; // (Pre-Production) LP
-    const azuroBet = "0x8ed7296b5CAe379d07C70280Af622BC410F01Ed7"; 
+    const azuroBet = "0x8ed7296b5CAe379d07C70280Af622BC410F01Ed7";
     const usdcAddress = "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359";
     const usdtAddress = "0xc2132D05D31c914a87C6611C10748AEb04B58e8F";
 
@@ -82,7 +113,7 @@ describe("Sentinel", function () {
       usdc,
       usdt,
       swapRouter,
-      lp
+      lp,
     };
   }
 
@@ -107,21 +138,18 @@ describe("Sentinel", function () {
         usdc,
         usdt,
         swapRouter,
-        lp
+        lp,
       } = await loadFixture(deploySentinelFixture);
-      console.log(sentinelAddress, "sentinelAddress");
       // Create bet parameters
       const condition = "100610060000000000262983090000000000000271848208"; // Example condition ID
       const outcome = "29"; // Example outcome
-      const referrer = "0x216BeA48DE17eba784027a591DBD2866EF606EC6"; 
+      const referrer = "0x216BeA48DE17eba784027a591DBD2866EF606EC6";
 
       // Encode bet data using ethers
       const betData = hre.ethers.AbiCoder.defaultAbiCoder().encode(
         ["uint256", "uint64", "address"],
         [condition, outcome, referrer]
       );
-      console.log(betData, "betData");
-
       const amount = "5000000"; // 5 USDC
 
       // Impersonate acrossGenericHandler
@@ -129,29 +157,40 @@ describe("Sentinel", function () {
         method: "hardhat_impersonateAccount",
         params: [acrossGenericHandler],
       });
+
       const acrossGenericHandlerSigner = await hre.ethers.getSigner(
         acrossGenericHandler
       );
       //approve sentinel to spend acrossGenericHandler's USDC
-      const approve = await usdc.connect(acrossGenericHandlerSigner).approve(sentinelAddress, amount);
-      console.log(await usdc.allowance(acrossGenericHandlerSigner.address, sentinelAddress), "allowance");
-      console.log(await usdc.balanceOf(acrossGenericHandlerSigner.address), "balanceOf");
-      console.log(await usdc.allowance(sentinelAddress, swapRouter), "allowance");
+      await usdc
+        .connect(acrossGenericHandlerSigner)
+        .approve(sentinelAddress, amount);
 
       const bet = await sentinel
         .connect(acrossGenericHandlerSigner)
         .handleBet(usdcAddress, usdtAddress, amount, betData);
-      
-      //check allowance
-      console.log(await usdc.allowance(sentinelAddress, swapRouter), "allowance");
-      console.log(await usdt.balanceOf(sentinelAddress), "balanceOf");
-      console.log(await usdt.allowance(sentinelAddress, lp), "allowance");
+
       // Stop impersonating
       await hre.network.provider.request({
         method: "hardhat_stopImpersonatingAccount",
         params: [acrossGenericHandler],
       });
-
     });
   });
 });
+
+
+/*
+const messageHash = await createControllerSignature({
+        idBet: "1",
+        amountOut: "1000000000000000000",
+        quoteTimestamp: 1712150400,
+        exclusivityDeadline: 1712150400,
+        exclusivityRelayer: "0x216BeA48DE17eba784027a591DBD2866EF606EC6",
+        onlyWithdraw: false,
+        sentinelAddress: sentinelAddress,
+      });
+      const signature = await acrossGenericHandlerSigner.signMessage(
+        hre.ethers.getBytes(messageHash)
+      );
+*/
