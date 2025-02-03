@@ -1,20 +1,25 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-//TODO: multiple bet, native token support (worldcoin), uniswap router interface node module, relayer permit2 worldchain, handleProtocolFee function in bet
+//TODO: multiple bet, change factory address as const, only factory modifier
+
+//NOTES:
+//native token support (worldcoin) -> WETH (wrl) -> WETH (pol) <-> USDT (pol)
+//express address for multiple bets
 
 // ======================== Imports ========================
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
-import "@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol";
+import "./utils/ISwapRouter.sol";
 import "./azuro-protocol/ILP.sol";
 import "./utils/V3SpokePoolInterface.sol";
 import "./utils/IQuoter.sol";
 import "./azuro-protocol/IAzuroBet.sol";
 import "./azuro-protocol/IBet.sol";
 import "hardhat/console.sol";
+import "./azuro-protocol/ICoreBase.sol";
 
 // ======================== Contract Definition ========================
 /**
@@ -60,6 +65,8 @@ contract Sentinel is ReentrancyGuard, Pausable {
   error NotFactory(address factory);
   error InvalidControllerAddress();
   error InvalidAmountOutMin();
+  error InvalidAmountForAcross();
+  error InvalidExpressAddress();
   error InvalidOperatorAddress();
   error InvalidSwapRouterAddress();
   error InvalidLPAddress();
@@ -100,6 +107,7 @@ contract Sentinel is ReentrancyGuard, Pausable {
   address public acrossGenericHandler; // Across bridge handler address
   address public acrossSpokePool; // Across spoke pool address
   address public coreBase; // Azuro core contract address
+  address public expressAddress; // Express address for multiple bets
   address public quoter; // Uniswap quoter address
   address public usdcAddress; // USDC token address
   address public usdtAddress; // USDT token address
@@ -200,6 +208,7 @@ contract Sentinel is ReentrancyGuard, Pausable {
     uint256 _protocolFeePercentage,
     uint256 _referralFeePercentage,
     address _coreBase,
+    address _expressAddress,
     address _quoter,
     uint24 _poolFee,
     uint256 _destinationChainId
@@ -211,6 +220,7 @@ contract Sentinel is ReentrancyGuard, Pausable {
       _protocolFeePercentage,
       _referralFeePercentage,
       _coreBase,
+      _expressAddress,
       _quoter,
       _poolFee,
       _destinationChainId
@@ -262,6 +272,7 @@ contract Sentinel is ReentrancyGuard, Pausable {
     uint256 _protocolFeePercentage,
     uint256 _referralFeePercentage,
     address _coreBase,
+    address _expressAddress,
     address _quoter,
     uint24 _poolFee,
     uint256 _destinationChainId
@@ -278,6 +289,7 @@ contract Sentinel is ReentrancyGuard, Pausable {
       revert InvalidProtocolFeeRecipientAddress();
     if (_referralFeePercentage == 0) revert InvalidReferralFeePercentage();
     if (_coreBase == address(0)) revert InvalidCoreBaseAddress();
+    if (_expressAddress == address(0)) revert InvalidExpressAddress();
     if (_quoter == address(0)) revert InvalidQuoterAddress();
     if (_poolFee == 0) revert InvalidPoolFee();
     if (_destinationChainId == 0) revert InvalidDestinationChainId();
@@ -288,6 +300,7 @@ contract Sentinel is ReentrancyGuard, Pausable {
     protocolFeePercentage = _protocolFeePercentage;
     referralFeePercentage = _referralFeePercentage;
     coreBase = _coreBase;
+    expressAddress = _expressAddress;
     quoter = _quoter;
     poolFee = _poolFee;
     destinationChainId = _destinationChainId;
@@ -419,7 +432,7 @@ contract Sentinel is ReentrancyGuard, Pausable {
    * @param tokenIn Source token address
    * @param tokenOut Destination token address
    * @param amountIn Amount of tokens being sent
-   * @param bet Encoded bet data (condition, outcome, referrer)
+   * @param bet Encoded bet data (array of condition, outcome, referrer)
    */
   function handleBet(
     address tokenIn,
@@ -443,17 +456,19 @@ contract Sentinel is ReentrancyGuard, Pausable {
       amountIn
     );
 
-    // TODO: handle protocol fee function
-    uint256 protocolFee = _calculatePercentage(amountIn, protocolFeePercentage);
-    IERC20(tokenIn).safeTransfer(protocolFeeRecipient, protocolFee);
-
-    uint256 amountInAfterProtocolFee = amountIn - protocolFee;
+    // handle protocol fee function
+    uint256 amountInAfterProtocolFee = _handleProtocolFee(amountIn);
 
     // Decode bet data
-    (uint256 condition, uint64 outcome, address referrer) = abi.decode(
-      bet,
-      (uint256, uint64, address)
-    );
+    (
+      uint256[] memory conditions,
+      uint64[] memory outcomes,
+      address referrer
+    ) = abi.decode(bet, (uint256[], uint64[], address));
+
+    // Validate array lengths match
+    require(conditions.length == outcomes.length, "Array lengths mismatch");
+    require(conditions.length > 0, "Empty bet arrays");
 
     uint256 referralFees = 0;
 
@@ -478,9 +493,18 @@ contract Sentinel is ReentrancyGuard, Pausable {
     // Approve LP to spend swapped tokens
     IERC20(tokenOut).forceApprove(address(lp), amountOut);
 
-    // Place a bet for the player
-    uint256 idBet = _bet(uint128(amountOut), condition, outcome);
-    console.log(idBet, "idBet");
+    // Calculate amount per bet
+    uint256 amountPerBet = amountOut / conditions.length;
+
+    console.log("isMultiple", conditions.length > 1);
+
+    // Place bets for the player
+    uint256 idBet = _bet(
+      uint128(amountPerBet),
+      conditions,
+      outcomes,
+      conditions.length > 1 // isExpress = true if multiple bets
+    );
     emit BetPlaced(idBet);
   }
 
@@ -488,7 +512,7 @@ contract Sentinel is ReentrancyGuard, Pausable {
    * @notice Processes bet withdrawals and sends funds back across the bridge
    * @dev Only callable by the owner or operator
    * @param idBet Bet ID to withdraw
-   * @param amountOut Amount to withdraw
+   * @param totalFeeAmount Amount to withdraw
    * @param quoteTimestamp Timestamp for exclusivity
    * @param exclusivityDeadline Deadline for exclusivity
    * @param exclusivityRelayer Relayer address
@@ -496,7 +520,7 @@ contract Sentinel is ReentrancyGuard, Pausable {
    */
   function handleWithdraw(
     uint256 idBet,
-    uint256 amountOut,
+    uint256 totalFeeAmount,
     uint32 quoteTimestamp,
     uint32 exclusivityDeadline,
     address exclusivityRelayer,
@@ -504,7 +528,7 @@ contract Sentinel is ReentrancyGuard, Pausable {
   ) external onlyController nonReentrant whenNotPausedOverride {
     _handleWithdraw(
       idBet,
-      amountOut,
+      totalFeeAmount,
       quoteTimestamp,
       exclusivityDeadline,
       exclusivityRelayer,
@@ -517,7 +541,7 @@ contract Sentinel is ReentrancyGuard, Pausable {
    * @notice Processes bet withdrawals and sends funds back across the bridge
    * @dev Only callable by the owner or operator
    * @param idBet Bet ID to withdraw
-   * @param amountOut Amount to withdraw
+   * @param totalFeeAmount Amount to withdraw
    * @param quoteTimestamp Timestamp for exclusivity
    * @param exclusivityDeadline Deadline for exclusivity
    * @param exclusivityRelayer Relayer address
@@ -525,7 +549,7 @@ contract Sentinel is ReentrancyGuard, Pausable {
    */
   function handleWithdrawOperator(
     uint256 idBet,
-    uint256 amountOut,
+    uint256 totalFeeAmount,
     uint32 quoteTimestamp,
     uint32 exclusivityDeadline,
     address exclusivityRelayer,
@@ -535,7 +559,7 @@ contract Sentinel is ReentrancyGuard, Pausable {
     // Verify controller signature
     _verifyControllerSignature(
       idBet,
-      amountOut,
+      totalFeeAmount,
       quoteTimestamp,
       exclusivityDeadline,
       exclusivityRelayer,
@@ -545,7 +569,7 @@ contract Sentinel is ReentrancyGuard, Pausable {
 
     _handleWithdraw(
       idBet,
-      amountOut,
+      totalFeeAmount,
       quoteTimestamp,
       exclusivityDeadline,
       exclusivityRelayer,
@@ -634,24 +658,50 @@ contract Sentinel is ReentrancyGuard, Pausable {
    * @notice Places a bet on the Azuro protocol
    * @dev Constructs and submits bet data to the Azuro LP
    * @param amountOut Amount of tokens to bet
-   * @param condition Bet condition
-   * @param outcome Bet outcome
+   * @param conditions Bet conditions
+   * @param outcomes Bet outcomes
+   * @param isMultiple Whether this is part of an express bet
    * @return idBet ID of the placed bet
    */
   function _bet(
     uint128 amountOut,
-    uint256 condition,
-    uint64 outcome
+    uint256[] memory conditions,
+    uint64[] memory outcomes,
+    bool isMultiple
   ) internal returns (uint256 idBet) {
-    // Build the bet object
     uint64 minOdds = 1;
-    IBet.BetData memory betData = IBet.BetData(
-      address(0), // affiliate
-      minOdds,
-      abi.encode(condition, outcome)
-    );
     uint64 expiresAt = uint64(block.timestamp + 1800); // 30 minutes
-    idBet = lp.bet(address(coreBase), amountOut, expiresAt, betData);
+
+    if (isMultiple) {
+      // Create array of CoreBetData for multiple bets
+      ICoreBase.CoreBetData[] memory subBets = new ICoreBase.CoreBetData[](
+        conditions.length
+      );
+
+      // Fill the array with bet data
+      for (uint256 i = 0; i < conditions.length; i++) {
+        subBets[i] = ICoreBase.CoreBetData({
+          conditionId: conditions[i],
+          outcomeId: outcomes[i]
+        });
+      }
+
+      IBet.BetData memory betData = IBet.BetData(
+        address(0), // affiliate
+        minOdds,
+        abi.encode(subBets) // Encode the array of CoreBetData
+      );
+
+      idBet = lp.bet(address(expressAddress), amountOut, expiresAt, betData);
+    } else {
+      // Single bet case remains unchanged
+      IBet.BetData memory betData = IBet.BetData(
+        address(0), // affiliate
+        minOdds,
+        abi.encode(conditions[0], outcomes[0])
+      );
+      idBet = lp.bet(address(coreBase), amountOut, expiresAt, betData);
+    }
   }
 
   /**
@@ -707,7 +757,7 @@ contract Sentinel is ReentrancyGuard, Pausable {
       usdcAddress,
       usdtAddress,
       amountIn,
-      amountOut,
+      amountOut, //amount out is amount - total relayer fees
       destinationChainId,
       exclusivityRelayer,
       quoteTimestamp,
@@ -721,7 +771,7 @@ contract Sentinel is ReentrancyGuard, Pausable {
    * @notice Internal function to process bet withdrawals
    * @dev Handles payout retrieval, swaps, and bridge transfer
    * @param idBet Bet ID to withdraw
-   * @param amountOut Amount to withdraw
+   * @param totalFeeAmount Amount to withdraw
    * @param quoteTimestamp Timestamp for exclusivity
    * @param exclusivityDeadline Deadline for exclusivity
    * @param exclusivityRelayer Relayer address
@@ -729,7 +779,7 @@ contract Sentinel is ReentrancyGuard, Pausable {
    */
   function _handleWithdraw(
     uint256 idBet,
-    uint256 amountOut,
+    uint256 totalFeeAmount,
     uint32 quoteTimestamp,
     uint32 exclusivityDeadline,
     address exclusivityRelayer,
@@ -758,6 +808,12 @@ contract Sentinel is ReentrancyGuard, Pausable {
       uint256 amountForAcross = _handleProtocolFee(amountOutAfterSwap);
 
       IERC20(usdcAddress).forceApprove(acrossSpokePool, amountForAcross);
+
+      // Check on the amount for across
+      if (totalFeeAmount >= amountForAcross) {
+        revert InvalidAmountForAcross();
+      }
+      uint256 amountOut = amountForAcross - totalFeeAmount;
 
       // Step 3: Call Across
       _sendToAcross(
