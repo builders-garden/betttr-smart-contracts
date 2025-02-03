@@ -57,6 +57,7 @@ contract Sentinel is ReentrancyGuard, Pausable {
   error NotController(address controller);
   error NotSentinel();
   error NotControllerOrOperator(address controller);
+  error NotFactory(address factory);
   error InvalidControllerAddress();
   error InvalidAmountOutMin();
   error InvalidOperatorAddress();
@@ -82,6 +83,7 @@ contract Sentinel is ReentrancyGuard, Pausable {
   // ======================== Constants ========================
   uint256 private constant BASIS_POINTS = 10000; // 100% (100 * 100 = 10000)
   uint256 private constant USDC_DECIMALS = 6; // 1 USDC = 10^6 USDC
+  address private constant FACTORY = 0x0000000000000000000000000000000000000000;
 
   // ======================== State Variables ========================
   // Access Control
@@ -144,6 +146,16 @@ contract Sentinel is ReentrancyGuard, Pausable {
   }
 
   /**
+   * @notice Ensures caller is factory
+   */
+  modifier onlyFactory() {
+    if (msg.sender != FACTORY) {
+      revert NotFactory(msg.sender);
+    }
+    _;
+  }
+
+  /**
    * @notice Ensures contract is not paused
    */
   modifier whenNotPausedOverride() {
@@ -151,37 +163,6 @@ contract Sentinel is ReentrancyGuard, Pausable {
       revert PausedState();
     }
     _;
-  }
-
-  // ======================== Constructor ========================
-  /**
-   * @notice Contract constructor
-   * @param _owner Contract owner address
-   * @param _operator Contract operator address
-   * @param _swapRouter Uniswap V3 SwapRouter address
-   * @param _lp Azuro liquidity pool address
-   * @param _azuroBet Azuro bet contract address
-   * @param _usdcAddress USDC token address
-   * @param _usdtAddress USDT token address
-   */
-  constructor(
-    address _owner,
-    address _operator,
-    ISwapRouter _swapRouter,
-    ILP _lp,
-    address _azuroBet,
-    address _usdcAddress,
-    address _usdtAddress
-  ) {
-    _initializeCore(
-      _owner,
-      _operator,
-      _swapRouter,
-      _lp,
-      _azuroBet,
-      _usdcAddress,
-      _usdtAddress
-    );
   }
 
   // ======================== Initialization Functions ========================
@@ -197,7 +178,7 @@ contract Sentinel is ReentrancyGuard, Pausable {
     address _azuroBet,
     address _usdcAddress,
     address _usdtAddress
-  ) external onlyOperator {
+  ) external /*onlyFactory*/ {
     _initializeCore(
       _owner,
       _operator,
@@ -222,7 +203,7 @@ contract Sentinel is ReentrancyGuard, Pausable {
     address _quoter,
     uint24 _poolFee,
     uint256 _destinationChainId
-  ) external onlyOperator {
+  ) external /*onlyFactory*/ {
     _initializeProtocol(
       _acrossGenericHandler,
       _acrossSpokePool,

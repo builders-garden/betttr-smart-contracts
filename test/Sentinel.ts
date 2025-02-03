@@ -7,18 +7,16 @@ import { expect } from "chai";
 import hre from "hardhat";
 import { ERC20ABI } from "./ERC20ABI";
 
-async function createControllerSignature(
-  params: {
-    idBet: string;
-    amountOut: string;
-    quoteTimestamp: number;
-    exclusivityDeadline: number;
-    exclusivityRelayer: string;
-    onlyWithdraw: boolean;
-    sentinelAddress: string;
-  }
-) {
-  // Construct the message in the same way as the contract
+// Helper function for signature creation
+async function createControllerSignature(params: {
+  idBet: string;
+  amountOut: string;
+  quoteTimestamp: number;
+  exclusivityDeadline: number;
+  exclusivityRelayer: string;
+  onlyWithdraw: boolean;
+  sentinelAddress: string;
+}) {
   const message = hre.ethers.solidityPacked(
     ["uint256", "uint256", "uint32", "uint32", "address", "bool", "address"],
     [
@@ -31,154 +29,167 @@ async function createControllerSignature(
       params.sentinelAddress,
     ]
   );
-
-  // Create the hash
-  const messageHash = hre.ethers.keccak256(message);
-
-  return messageHash;
+  return hre.ethers.keccak256(message);
 }
 
 describe("Sentinel", function () {
-  // We define a fixture to reuse the same setup in every test.
-  // We use loadFixture to run this setup once, snapshot that state,
-  // and reset Hardhat Network to that snapshot in every test.
+  // Test configuration
+  const ADDRESSES = {
+    SWAP_ROUTER: "0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45",
+    LP: "0x7043E4e1c4045424858ECBCED80989FeAfC11B36",
+    AZURO_BET: "0x8ed7296b5CAe379d07C70280Af622BC410F01Ed7",
+    USDC: "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359",
+    USDT: "0xc2132D05D31c914a87C6611C10748AEb04B58e8F",
+    ACROSS_GENERIC_HANDLER: "0x88a1493366D48225fc3cEFbdae9eBb23E323Ade3", // Test handler
+    ACROSS_SPOKE_POOL: "0x9295ee1d8C5b022Be115A2AD3c30C72E34e7F096",
+    PROTOCOL_FEE_RECIPIENT: "0xDB6308968A6d90892A65989A318E0F0408147317",
+    CORE_BASE: "0xA40F8D69D412b79b49EAbdD5cf1b5706395bfCf7", // PreMatch
+    QUOTER: "0x7637Aaeb5BD58269B782726680d83f72C651aE74",
+  };
+
+  const CONFIG = {
+    PROTOCOL_FEE_PERCENTAGE: 1000,
+    REFERRAL_FEE_PERCENTAGE: 100,
+    POOL_FEE: 100, // 0.02%
+    DESTINATION_CHAIN_ID: 137, // Polygon mainnet
+  };
+
   async function deploySentinelFixture() {
-    // Contracts are deployed using the first signer/account by default
     const [account1, account2] = await hre.ethers.getSigners();
-    console.log(account1.address, "account1");
-    console.log(account2.address, "account2");
-    // Constructor parameters
-    const controller = account1.address;
-    const operator = account2.address;
-    const swapRouter = "0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45";
-    const lp = "0x7043E4e1c4045424858ECBCED80989FeAfC11B36";
-    //const lp = "0x3528186476fd0ea0adc9fccc41de4cd138f99653"; // (Pre-Production) LP
-    const azuroBet = "0x8ed7296b5CAe379d07C70280Af622BC410F01Ed7";
-    const usdcAddress = "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359";
-    const usdtAddress = "0xc2132D05D31c914a87C6611C10748AEb04B58e8F";
+    const contractCode = (await hre.artifacts.readArtifact("Sentinel"))
+      .bytecode;
 
-    // Configuration variables for initializeProtocol
-    //const acrossGenericHandler = "0x924a9f036260DdD5808007E1AA95f08eD08aA569";
-    const acrossGenericHandler = "0x88a1493366D48225fc3cEFbdae9eBb23E323Ade3"; //fake acrossGenericHandler
-    const acrossSpokePool = "0x9295ee1d8C5b022Be115A2AD3c30C72E34e7F096";
-    const protocolFeeRecipient = "0xDB6308968A6d90892A65989A318E0F0408147317";
-    const protocolFeePercentage = 1000;
-    const referralFeePercentage = 100;
-    //const coreBase = "0x2477B960080B3439b4684df3D9CE53B2ACe64315" // (Pre-Production) PreMatch
-    const coreBase = "0xA40F8D69D412b79b49EAbdD5cf1b5706395bfCf7"; //PreMatch
-    //const coreBase = "0x92a4e8Bc6B92a2e1ced411f41013B5FE6BE07613"; //BetExpress
-    const quoter = "0x7637Aaeb5BD58269B782726680d83f72C651aE74";
-    const poolFee = 100; // 0.02%
-    const destinationChainId = 137; // Polygon mainnet
-
-    const Sentinel = await hre.ethers.getContractFactory("Sentinel");
-    const sentinel = await Sentinel.connect(account2).deploy(
-      controller,
-      operator,
-      swapRouter,
-      lp,
-      azuroBet,
-      usdcAddress,
-      usdtAddress
+    // Deploy factory
+    const Factory = await hre.ethers.getContractFactory(
+      "SentinelFactoryCreate2"
     );
-    expect(await sentinel.operator()).to.equal(operator);
-    console.log(await sentinel.controller());
-    expect(await sentinel.controller()).to.equal(controller);
-    console.log(await sentinel.swapRouter());
+    const factory = await Factory.connect(account2).deploy(
+      account2.address, // operator
+      contractCode
+    );
 
-    const initializeProtocol = await sentinel
+    // Prepare Sentinel initialization
+    const Sentinel = await hre.ethers.getContractFactory("Sentinel");
+    const sentinel = await Sentinel.connect(account2).deploy();
+
+    const initContractCore = sentinel.interface.encodeFunctionData(
+      "initializeCore",
+      [
+        account1.address, // controller
+        account2.address, // operator
+        ADDRESSES.SWAP_ROUTER,
+        ADDRESSES.LP,
+        ADDRESSES.AZURO_BET,
+        ADDRESSES.USDC,
+        ADDRESSES.USDT,
+      ]
+    );
+
+    const initContractProtocol = sentinel.interface.encodeFunctionData(
+      "initializeProtocol",
+      [
+        ADDRESSES.ACROSS_GENERIC_HANDLER,
+        ADDRESSES.ACROSS_SPOKE_POOL,
+        ADDRESSES.PROTOCOL_FEE_RECIPIENT,
+        CONFIG.PROTOCOL_FEE_PERCENTAGE,
+        CONFIG.REFERRAL_FEE_PERCENTAGE,
+        ADDRESSES.CORE_BASE,
+        ADDRESSES.QUOTER,
+        CONFIG.POOL_FEE,
+        CONFIG.DESTINATION_CHAIN_ID,
+      ]
+    );
+
+    // Deploy through factory
+    await factory
       .connect(account2)
-      .initializeProtocol(
-        acrossGenericHandler,
-        acrossSpokePool,
-        protocolFeeRecipient,
-        protocolFeePercentage,
-        referralFeePercentage,
-        coreBase,
-        quoter,
-        poolFee,
-        destinationChainId
-      );
-    const usdc = await hre.ethers.getContractAt("IERC20", usdcAddress);
-    const usdt = await hre.ethers.getContractAt("IERC20", usdtAddress);
-    const sentinelAddress = await sentinel.getAddress();
+      .deploy(account1.address, initContractCore, initContractProtocol);
+
+    const deployedAddress = await factory.deployedControllers(account1.address);
+    const deployedSentinel = await hre.ethers.getContractAt(
+      "Sentinel",
+      deployedAddress
+    );
+
+    const usdc = await hre.ethers.getContractAt("IERC20", ADDRESSES.USDC);
+    const usdt = await hre.ethers.getContractAt("IERC20", ADDRESSES.USDT);
+
     return {
-      sentinel,
-      sentinelAddress,
+      deployedSentinel,
+      deployedAddress,
       account1,
       account2,
-      usdcAddress,
-      usdtAddress,
-      acrossGenericHandler,
       usdc,
       usdt,
-      swapRouter,
-      lp,
+      factory,
     };
   }
 
   describe("Deployment", function () {
-    it("Should check the operator and controller", async function () {
-      const { sentinel, account1, account2 } = await loadFixture(
+    it("Should set correct operator and controller", async function () {
+      const { deployedSentinel, account1, account2 } = await loadFixture(
         deploySentinelFixture
       );
 
-      expect(await sentinel.operator()).to.equal(account2.address);
-      expect(await sentinel.controller()).to.equal(account1.address);
+      expect(await deployedSentinel.operator()).to.equal(account2.address);
+      expect(await deployedSentinel.controller()).to.equal(account1.address);
     });
-    it("Should execute handleBet", async function () {
-      const {
-        sentinel,
-        sentinelAddress,
-        account1,
-        account2,
-        usdcAddress,
-        usdtAddress,
-        acrossGenericHandler,
-        usdc,
-        usdt,
-        swapRouter,
-        lp,
-      } = await loadFixture(deploySentinelFixture);
-      // Create bet parameters
-      const condition = "100610060000000000262983090000000000000271848208"; // Example condition ID
-      const outcome = "29"; // Example outcome
-      const referrer = "0x216BeA48DE17eba784027a591DBD2866EF606EC6";
 
-      // Encode bet data using ethers
+    it("Should prevent duplicate deployment for same controller", async function () {
+      const { factory, account1, account2 } = await loadFixture(
+        deploySentinelFixture
+      );
+
+      const dummyData = "0x";
+      await expect(
+        factory.connect(account2).deploy(account1.address, dummyData, dummyData)
+      )
+        .to.be.revertedWithCustomError(factory, "AlreadyDeployed")
+        .withArgs(account1.address);
+    });
+
+    it("Should execute handleBet successfully", async function () {
+      const { deployedSentinel, deployedAddress, usdc } = await loadFixture(
+        deploySentinelFixture
+      );
+
+      const betParams = {
+        condition: "100610060000000000263676410000000000000250565277",
+        outcome: "29",
+        referrer: "0x216BeA48DE17eba784027a591DBD2866EF606EC6",
+        amount: "5000000", // 5 USDC
+      };
+
       const betData = hre.ethers.AbiCoder.defaultAbiCoder().encode(
         ["uint256", "uint64", "address"],
-        [condition, outcome, referrer]
+        [betParams.condition, betParams.outcome, betParams.referrer]
       );
-      const amount = "5000000"; // 5 USDC
 
       // Impersonate acrossGenericHandler
       await hre.network.provider.request({
         method: "hardhat_impersonateAccount",
-        params: [acrossGenericHandler],
+        params: [ADDRESSES.ACROSS_GENERIC_HANDLER],
       });
 
       const acrossGenericHandlerSigner = await hre.ethers.getSigner(
-        acrossGenericHandler
+        ADDRESSES.ACROSS_GENERIC_HANDLER
       );
-      //approve sentinel to spend acrossGenericHandler's USDC
+
       await usdc
         .connect(acrossGenericHandlerSigner)
-        .approve(sentinelAddress, amount);
+        .approve(deployedAddress, betParams.amount);
 
-      const bet = await sentinel
+      await deployedSentinel
         .connect(acrossGenericHandlerSigner)
-        .handleBet(usdcAddress, usdtAddress, amount, betData);
+        .handleBet(ADDRESSES.USDC, ADDRESSES.USDT, betParams.amount, betData);
 
-      // Stop impersonating
       await hre.network.provider.request({
         method: "hardhat_stopImpersonatingAccount",
-        params: [acrossGenericHandler],
+        params: [ADDRESSES.ACROSS_GENERIC_HANDLER],
       });
     });
   });
 });
-
 
 /*
 const messageHash = await createControllerSignature({
