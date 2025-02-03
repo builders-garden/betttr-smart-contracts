@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-//TODO: multiple bet, change factory address as const, only factory modifier, change requiremenets to revert error
+//TODO: change factory address as const, only factory modifier, change requiremenets to revert error
 
 //NOTES:
 //native token support (worldcoin) -> WETH (wrl) -> WETH (pol) <-> USDT (pol)
@@ -87,6 +87,9 @@ contract Sentinel is ReentrancyGuard, Pausable, IERC721Receiver {
   error InvalidAmount();
   error PausedState();
   error InvalidSignature();
+  error ArrayLengthsMismatch();
+  error EmptyBetArrays();
+  error DuplicateConditionIds();
 
   // ======================== Constants ========================
   uint256 private constant BASIS_POINTS = 10000; // 100% (100 * 100 = 10000)
@@ -668,6 +671,13 @@ contract Sentinel is ReentrancyGuard, Pausable, IERC721Receiver {
     uint64 minOdds = 1;
     uint64 expiresAt = uint64(block.timestamp + 1800); // 30 minutes
 
+    if (conditions.length != outcomes.length) {
+      revert ArrayLengthsMismatch();
+    }
+    if (conditions.length == 0) {
+      revert EmptyBetArrays();
+    }
+
     if (isMultiple) {
       // Create array of CoreBetData for multiple bets
       ICoreBase.CoreBetData[] memory subBets = new ICoreBase.CoreBetData[](
@@ -678,10 +688,9 @@ contract Sentinel is ReentrancyGuard, Pausable, IERC721Receiver {
       for (uint256 i = 0; i < conditions.length; i++) {
         // Validate unique condition IDs
         for (uint256 j = 0; j < i; j++) {
-          require(
-            conditions[i] != conditions[j],
-            "Duplicate condition IDs not allowed"
-          );
+          if (conditions[i] == conditions[j]) {
+            revert DuplicateConditionIds();
+          }
         }
 
         subBets[i] = ICoreBase.CoreBetData({
