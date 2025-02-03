@@ -157,12 +157,77 @@ describe("Sentinel", function () {
 
       const betParams = {
         conditions: [
-          "100610060000000000264450940000000000000354486732"
+          "100610060000000000264592750000000000000337631534",
         ],
         outcomes: ["29"], // Two outcomes for multiple bet
         referrer: "0x216BeA48DE17eba784027a591DBD2866EF606EC6",
-        amount: "5000000", // 5 USDC
-        isMultiple: true, // Flag for multiple bet
+        amount: "50000000", // 5 USDC
+      };
+
+      const betData = hre.ethers.AbiCoder.defaultAbiCoder().encode(
+        ["uint256[]", "uint64[]", "address"],
+        [betParams.conditions, betParams.outcomes, betParams.referrer]
+      );
+
+      // Get initial balances
+      const initialProtocolBalance = await usdc.balanceOf(
+        ADDRESSES.PROTOCOL_FEE_RECIPIENT
+      );
+      const initialReferrerBalance = await usdc.balanceOf(betParams.referrer);
+
+      // Impersonate acrossGenericHandler
+      await hre.network.provider.request({
+        method: "hardhat_impersonateAccount",
+        params: [ADDRESSES.ACROSS_GENERIC_HANDLER],
+      });
+
+      const acrossGenericHandlerSigner = await hre.ethers.getSigner(
+        ADDRESSES.ACROSS_GENERIC_HANDLER
+      );
+
+      await usdc
+        .connect(acrossGenericHandlerSigner)
+        .approve(deployedAddress, betParams.amount);
+
+      await deployedSentinel
+        .connect(acrossGenericHandlerSigner)
+        .handleBet(ADDRESSES.USDC, ADDRESSES.USDT, betParams.amount, betData);
+
+      // Check fee distribution
+      const expectedProtocolFee =
+        (BigInt(betParams.amount) * BigInt(CONFIG.PROTOCOL_FEE_PERCENTAGE)) /
+        BigInt(10000);
+      const expectedReferralFee =
+        ((BigInt(betParams.amount) - expectedProtocolFee) *
+          BigInt(CONFIG.REFERRAL_FEE_PERCENTAGE)) /
+        BigInt(10000);
+
+      expect(await usdc.balanceOf(ADDRESSES.PROTOCOL_FEE_RECIPIENT)).to.equal(
+        initialProtocolBalance + expectedProtocolFee
+      );
+      expect(await usdc.balanceOf(betParams.referrer)).to.equal(
+        initialReferrerBalance + expectedReferralFee
+      );
+
+      await hre.network.provider.request({
+        method: "hardhat_stopImpersonatingAccount",
+        params: [ADDRESSES.ACROSS_GENERIC_HANDLER],
+      });
+    });
+
+    it("Should execute handleBet successfully with multiple bets", async function () {
+      const { deployedSentinel, deployedAddress, usdc } = await loadFixture(
+        deploySentinelFixture
+      );
+
+      const betParams = {
+        conditions: [
+          "100610060000000000264592750000000000000337631534",
+          "100610060000000000264601290000000000000338617982",
+        ],
+        outcomes: ["29", "29"], // Two outcomes for multiple bet
+        referrer: "0x216BeA48DE17eba784027a591DBD2866EF606EC6",
+        amount: "50000000", // 5 USDC
       };
 
       const betData = hre.ethers.AbiCoder.defaultAbiCoder().encode(

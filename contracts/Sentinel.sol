@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-//TODO: multiple bet, change factory address as const, only factory modifier
+//TODO: multiple bet, change factory address as const, only factory modifier, change requiremenets to revert error
 
 //NOTES:
 //native token support (worldcoin) -> WETH (wrl) -> WETH (pol) <-> USDT (pol)
@@ -20,6 +20,7 @@ import "./azuro-protocol/IAzuroBet.sol";
 import "./azuro-protocol/IBet.sol";
 import "hardhat/console.sol";
 import "./azuro-protocol/ICoreBase.sol";
+import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 
 // ======================== Contract Definition ========================
 /**
@@ -27,7 +28,7 @@ import "./azuro-protocol/ICoreBase.sol";
  * @notice This contract handles cross-chain sports betting operations using Azuro Protocol and Across Bridge
  * @dev Acts as a destination chain contract that receives bets and processes withdrawals
  */
-contract Sentinel is ReentrancyGuard, Pausable {
+contract Sentinel is ReentrancyGuard, Pausable, IERC721Receiver {
   using SafeERC20 for IERC20;
 
   // ======================== Events ========================
@@ -493,14 +494,9 @@ contract Sentinel is ReentrancyGuard, Pausable {
     // Approve LP to spend swapped tokens
     IERC20(tokenOut).forceApprove(address(lp), amountOut);
 
-    // Calculate amount per bet
-    uint256 amountPerBet = amountOut / conditions.length;
-
-    console.log("isMultiple", conditions.length > 1);
-
     // Place bets for the player
     uint256 idBet = _bet(
-      uint128(amountPerBet),
+      uint128(amountOut),
       conditions,
       outcomes,
       conditions.length > 1 // isExpress = true if multiple bets
@@ -680,26 +676,39 @@ contract Sentinel is ReentrancyGuard, Pausable {
 
       // Fill the array with bet data
       for (uint256 i = 0; i < conditions.length; i++) {
+        // Validate unique condition IDs
+        for (uint256 j = 0; j < i; j++) {
+          require(
+            conditions[i] != conditions[j],
+            "Duplicate condition IDs not allowed"
+          );
+        }
+
         subBets[i] = ICoreBase.CoreBetData({
           conditionId: conditions[i],
           outcomeId: outcomes[i]
         });
       }
 
-      IBet.BetData memory betData = IBet.BetData(
-        address(0), // affiliate
-        minOdds,
-        abi.encode(subBets) // Encode the array of CoreBetData
-      );
+      // Encode the CoreBetData array
+      bytes memory encodedBetData = abi.encode(subBets);
 
-      idBet = lp.bet(address(expressAddress), amountOut, expiresAt, betData);
+      // Create the BetData struct
+      IBet.BetData memory betData = IBet.BetData({
+        affiliate: address(0),
+        minOdds: 1,
+        data: encodedBetData
+      });
+
+      // Place the bet directly without try-catch
+      idBet = lp.bet(expressAddress, amountOut, expiresAt, betData);
     } else {
       // Single bet case remains unchanged
-      IBet.BetData memory betData = IBet.BetData(
-        address(0), // affiliate
-        minOdds,
-        abi.encode(conditions[0], outcomes[0])
-      );
+      IBet.BetData memory betData = IBet.BetData({
+        affiliate: address(0), // affiliate
+        minOdds: minOdds,
+        data: abi.encode(conditions[0], outcomes[0])
+      });
       idBet = lp.bet(address(coreBase), amountOut, expiresAt, betData);
     }
   }
@@ -871,5 +880,17 @@ contract Sentinel is ReentrancyGuard, Pausable {
     if (signer != controller) {
       revert InvalidSignature();
     }
+  }
+
+  /**
+   * @notice Implementation of IERC721Receiver
+   */
+  function onERC721Received(
+    address operator,
+    address from,
+    uint256 tokenId,
+    bytes calldata data
+  ) external override returns (bytes4) {
+    return this.onERC721Received.selector;
   }
 }
