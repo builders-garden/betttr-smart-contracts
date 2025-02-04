@@ -9,6 +9,8 @@ pragma solidity ^0.8.0;
 // ======================== Imports ========================
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
+import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
 import "./utils/ISwapRouter.sol";
@@ -19,7 +21,6 @@ import "./azuro-protocol/IAzuroBet.sol";
 import "./azuro-protocol/IBet.sol";
 import "hardhat/console.sol";
 import "./azuro-protocol/ICoreBase.sol";
-import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 
 // ======================== Contract Definition ========================
 /**
@@ -93,7 +94,7 @@ contract Sentinel is ReentrancyGuard, Pausable, IERC721Receiver {
   // ======================== Constants ========================
   uint256 private constant BASIS_POINTS = 10000; // 100% (100 * 100 = 10000)
   uint256 private constant USDC_DECIMALS = 6; // 1 USDC = 10^6 USDC
-  address private constant FACTORY = 0x0000000000000000000000000000000000000000;
+  address private constant FACTORY = 0x0000000000000000000000000000000000000000; //TODO
 
   // ======================== State Variables ========================
   // Access Control
@@ -110,6 +111,7 @@ contract Sentinel is ReentrancyGuard, Pausable, IERC721Receiver {
   address public acrossGenericHandler; // Across bridge handler address
   address public acrossSpokePool; // Across spoke pool address
   address public coreBase; // Azuro core contract address
+  address public azuroBet; // Azuro bet interface
   address public expressAddress; // Express address for multiple bets
   address public quoter; // Uniswap quoter address
   address public usdcAddress; // USDC token address
@@ -119,8 +121,6 @@ contract Sentinel is ReentrancyGuard, Pausable, IERC721Receiver {
   // Protocol Interfaces
   ISwapRouter public swapRouter; // Uniswap router interface
   ILP public lp; // Azuro liquidity pool interface
-  IAzuroBet public azuroBet; // Azuro bet interface
-
   bool public initialized; // Initialization status
   bool public protocolInitialized; // Protocol initialization status
 
@@ -257,7 +257,7 @@ contract Sentinel is ReentrancyGuard, Pausable, IERC721Receiver {
     controller = _controller;
     swapRouter = _swapRouter;
     lp = _lp;
-    azuroBet = IAzuroBet(_azuroBet);
+    azuroBet = _azuroBet;
     usdcAddress = _usdcAddress;
     usdtAddress = _usdtAddress;
     initialized = true;
@@ -522,6 +522,7 @@ contract Sentinel is ReentrancyGuard, Pausable, IERC721Receiver {
     uint32 quoteTimestamp,
     uint32 exclusivityDeadline,
     address exclusivityRelayer,
+    bool isMultipleBet,
     bool onlyWithdraw
   ) external onlyController nonReentrant whenNotPausedOverride {
     _handleWithdraw(
@@ -530,6 +531,7 @@ contract Sentinel is ReentrancyGuard, Pausable, IERC721Receiver {
       quoteTimestamp,
       exclusivityDeadline,
       exclusivityRelayer,
+      isMultipleBet,
       onlyWithdraw
     );
     emit WithdrawBet(idBet);
@@ -551,6 +553,7 @@ contract Sentinel is ReentrancyGuard, Pausable, IERC721Receiver {
     uint32 quoteTimestamp,
     uint32 exclusivityDeadline,
     address exclusivityRelayer,
+    bool isMultipleBet,
     bool onlyWithdraw,
     bytes memory controllerSignature
   ) external onlyOperator nonReentrant whenNotPausedOverride {
@@ -571,6 +574,7 @@ contract Sentinel is ReentrancyGuard, Pausable, IERC721Receiver {
       quoteTimestamp,
       exclusivityDeadline,
       exclusivityRelayer,
+      isMultipleBet,
       onlyWithdraw
     );
     emit WithdrawBet(idBet);
@@ -800,17 +804,24 @@ contract Sentinel is ReentrancyGuard, Pausable, IERC721Receiver {
     uint32 quoteTimestamp,
     uint32 exclusivityDeadline,
     address exclusivityRelayer,
+    bool isMultipleBet,
     bool onlyWithdraw
   ) internal {
-    // Check owner of the bet
-    address betOwner = IAzuroBet(address(azuroBet)).ownerOf(idBet);
-    // check if the bet is owned by the sentinel
-    if (betOwner != address(this)) {
-      revert NotSentinel();
+    // Step 1: Handle payout based on bet type
+    uint256 amountPayout;
+    if (isMultipleBet) {
+      // Multiple bet case
+      if (IERC721(expressAddress).ownerOf(idBet) != address(this)) {
+        revert NotSentinel();
+      }
+      amountPayout = lp.withdrawPayout(expressAddress, idBet);
+    } else {
+      // Single bet case
+      if (IERC721(azuroBet).ownerOf(idBet) != address(this)) {
+        revert NotSentinel();
+      }
+      amountPayout = lp.withdrawPayout(coreBase, idBet);
     }
-
-    // Step 1: Handle payout
-    uint256 amountPayout = lp.withdrawPayout(address(coreBase), idBet);
 
     if (!onlyWithdraw) {
       // Continue with swap and bridge operations
