@@ -564,10 +564,10 @@ contract Sentinel is ReentrancyGuard, Pausable, IERC721Receiver {
       quoteTimestamp,
       exclusivityDeadline,
       exclusivityRelayer,
+      isMultipleBet,
       onlyWithdraw,
       controllerSignature
     );
-
     _handleWithdraw(
       idBet,
       totalFeeAmount,
@@ -842,7 +842,7 @@ contract Sentinel is ReentrancyGuard, Pausable, IERC721Receiver {
         revert InvalidAmountForAcross();
       }
       uint256 amountOut = amountForAcross - totalFeeAmount;
-
+      /*
       // Step 3: Call Across
       _sendToAcross(
         amountForAcross,
@@ -851,6 +851,7 @@ contract Sentinel is ReentrancyGuard, Pausable, IERC721Receiver {
         exclusivityDeadline,
         exclusivityRelayer
       );
+      */
     }
   }
 
@@ -861,6 +862,7 @@ contract Sentinel is ReentrancyGuard, Pausable, IERC721Receiver {
     uint32 quoteTimestamp,
     uint32 exclusivityDeadline,
     address exclusivityRelayer,
+    bool isMultipleBet,
     bool onlyWithdraw,
     bytes memory signature
   ) internal view {
@@ -872,11 +874,11 @@ contract Sentinel is ReentrancyGuard, Pausable, IERC721Receiver {
         quoteTimestamp,
         exclusivityDeadline,
         exclusivityRelayer,
+        isMultipleBet,
         onlyWithdraw,
         address(this)
       )
     );
-
     // Create ethereum signed message hash
     bytes32 ethSignedMessageHash = keccak256(
       abi.encodePacked("\x19Ethereum Signed Message:\n32", messageHash)

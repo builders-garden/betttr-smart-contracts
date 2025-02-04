@@ -10,6 +10,7 @@ const config: HardhatUserConfig = {
     hardhat: {
       forking: {
         url: `https://wiser-dimensional-haze.matic.quiknode.pro/${QUICKNODE_API_KEY}`,
+        blockNumber: 67522380
       }
     }
   },

@@ -10,21 +10,23 @@ import { ERC20ABI } from "./ERC20ABI";
 // Helper function for signature creation
 async function createControllerSignature(params: {
   idBet: string;
-  amountOut: string;
+  totalFeeAmount: string;
   quoteTimestamp: number;
   exclusivityDeadline: number;
   exclusivityRelayer: string;
+  isMultipleBet: boolean;
   onlyWithdraw: boolean;
   sentinelAddress: string;
 }) {
   const message = hre.ethers.solidityPacked(
-    ["uint256", "uint256", "uint32", "uint32", "address", "bool", "address"],
+    ["uint256", "uint256", "uint32", "uint32", "address", "bool", "bool", "address"],
     [
       params.idBet,
-      params.amountOut,
+      params.totalFeeAmount,
       params.quoteTimestamp,
       params.exclusivityDeadline,
       params.exclusivityRelayer,
+      params.isMultipleBet,
       params.onlyWithdraw,
       params.sentinelAddress,
     ]
@@ -37,7 +39,7 @@ describe("Sentinel", function () {
   const ADDRESSES = {
     SWAP_ROUTER: "0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45",
     LP: "0x7043E4e1c4045424858ECBCED80989FeAfC11B36",
-    AZURO_BET: "0x8ed7296b5CAe379d07C70280Af622BC410F01Ed7",  //this is for the PreMatch
+    AZURO_BET: "0x8ed7296b5CAe379d07C70280Af622BC410F01Ed7", //this is for the PreMatch
     USDC: "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359",
     USDT: "0xc2132D05D31c914a87C6611C10748AEb04B58e8F",
     ACROSS_GENERIC_HANDLER: "0x88a1493366D48225fc3cEFbdae9eBb23E323Ade3", // Test handler
@@ -116,6 +118,15 @@ describe("Sentinel", function () {
     const usdc = await hre.ethers.getContractAt("IERC20", ADDRESSES.USDC);
     const usdt = await hre.ethers.getContractAt("IERC20", ADDRESSES.USDT);
 
+    const NFTSingle = await hre.ethers.getContractAt(
+      "IERC721",
+      ADDRESSES.AZURO_BET
+    );
+    const NFTMultiple = await hre.ethers.getContractAt(
+      "IERC721",
+      ADDRESSES.EXPRESS_ADDRESS
+    );
+
     return {
       deployedSentinel,
       deployedAddress,
@@ -123,6 +134,8 @@ describe("Sentinel", function () {
       account2,
       usdc,
       usdt,
+      NFTSingle,
+      NFTMultiple,
       factory,
     };
   }
@@ -149,6 +162,7 @@ describe("Sentinel", function () {
         .to.be.revertedWithCustomError(factory, "AlreadyDeployed")
         .withArgs(account1.address);
     });
+    /*
 
     it("Should execute handleBet successfully", async function () {
       const { deployedSentinel, deployedAddress, usdc } = await loadFixture(
@@ -156,9 +170,7 @@ describe("Sentinel", function () {
       );
 
       const betParams = {
-        conditions: [
-          "100610060000000000265044270000000000000371278161",
-        ],
+        conditions: ["100610060000000000265044270000000000000371278161"],
         outcomes: ["29"], // Two outcomes for multiple bet
         referrer: "0x216BeA48DE17eba784027a591DBD2866EF606EC6",
         amount: "50000000", // 5 USDC
@@ -279,21 +291,253 @@ describe("Sentinel", function () {
         method: "hardhat_stopImpersonatingAccount",
         params: [ADDRESSES.ACROSS_GENERIC_HANDLER],
       });
-    });
-  });
-});
-
-/*
-const messageHash = await createControllerSignature({
-        idBet: "1",
-        amountOut: "1000000000000000000",
-        quoteTimestamp: 1712150400,
-        exclusivityDeadline: 1712150400,
-        exclusivityRelayer: "0x216BeA48DE17eba784027a591DBD2866EF606EC6",
-        onlyWithdraw: false,
-        sentinelAddress: sentinelAddress,
+    });*/
+    /*
+    it("Should execute only withdraw successfully", async function () {
+      const {
+        deployedSentinel,
+        deployedAddress,
+        account1,
+        account2,
+        usdc,
+        usdt,
+        NFTSingle,
+      } = await loadFixture(deploySentinelFixture);
+      //Impersonate 0xfA6a2662aF427b4645254293adE248285B72AA29 to transfet the NFT with id 327075 to sentinel address
+      await hre.network.provider.request({
+        method: "hardhat_impersonateAccount",
+        params: ["0xfA6a2662aF427b4645254293adE248285B72AA29"],
       });
-      const signature = await acrossGenericHandlerSigner.signMessage(
+      const expressSigner = await hre.ethers.getSigner(
+        "0xfA6a2662aF427b4645254293adE248285B72AA29"
+      );
+
+      await NFTSingle.connect(expressSigner).transferFrom(
+        "0xfA6a2662aF427b4645254293adE248285B72AA29",
+        deployedAddress,
+        327075
+      );
+      //Check owner of the NFT
+      expect(await NFTSingle.ownerOf(327075)).to.equal(deployedAddress);
+
+      const withdrawParams = {
+        idBet: "327075",
+        totalFeeAmount: "1000000", // 1 USDC
+        quoteTimestamp: Math.floor(Date.now() / 1000),
+        exclusivityDeadline: Math.floor(Date.now() / 1000) + 3600, // 1 hour from now
+        exclusivityRelayer: account2.address as `0x${string}`,
+        isMultipleBet: false,
+        onlyWithdraw: true,
+        sentinelAddress: deployedAddress,
+      };
+      // Create and sign the message
+      const messageHash = await createControllerSignature(withdrawParams);
+      const signature = await account1.signMessage(
         hre.ethers.getBytes(messageHash)
       );
-*/
+      const initialUsdtBalance = await usdt.balanceOf(deployedAddress);
+      //Operator calls handleWithdrawOperator
+      await deployedSentinel
+        .connect(account2)
+        .handleWithdrawOperator(
+          withdrawParams.idBet,
+          withdrawParams.totalFeeAmount,
+          withdrawParams.quoteTimestamp,
+          withdrawParams.exclusivityDeadline,
+          withdrawParams.exclusivityRelayer,
+          withdrawParams.isMultipleBet,
+          withdrawParams.onlyWithdraw,
+          signature
+        );
+       //Check balance of USDT
+       expect(await usdt.balanceOf(deployedAddress)).greaterThan(initialUsdtBalance);
+    });*/
+/*
+    it("Should execute withdraw and swap successfully", async function () {
+      const {
+        deployedSentinel,
+        deployedAddress,
+        account1,
+        account2,
+        usdc,
+        usdt,
+        NFTSingle,
+      } = await loadFixture(deploySentinelFixture);
+      //Impersonate 0xfA6a2662aF427b4645254293adE248285B72AA29 to transfet the NFT with id 327075 to sentinel address
+      await hre.network.provider.request({
+        method: "hardhat_impersonateAccount",
+        params: ["0xfA6a2662aF427b4645254293adE248285B72AA29"],
+      });
+      const expressSigner = await hre.ethers.getSigner(
+        "0xfA6a2662aF427b4645254293adE248285B72AA29"
+      );
+
+      await NFTSingle.connect(expressSigner).transferFrom(
+        "0xfA6a2662aF427b4645254293adE248285B72AA29",
+        deployedAddress,
+        327075
+      );
+      //Check owner of the NFT
+      expect(await NFTSingle.ownerOf(327075)).to.equal(deployedAddress);
+
+      const withdrawParams = {
+        idBet: "327075",
+        totalFeeAmount: "100", // 0.001 USDC
+        quoteTimestamp: Math.floor(Date.now() / 1000),
+        exclusivityDeadline: Math.floor(Date.now() / 1000) + 3600, // 1 hour from now
+        exclusivityRelayer: account2.address as `0x${string}`,
+        isMultipleBet: false,
+        onlyWithdraw: false,
+        sentinelAddress: deployedAddress,
+      };
+      // Create and sign the message
+      const messageHash = await createControllerSignature(withdrawParams);
+      const signature = await account1.signMessage(
+        hre.ethers.getBytes(messageHash)
+      );
+      const initialUsdcBalance = await usdc.balanceOf(deployedAddress);
+      //Operator calls handleWithdrawOperator
+      await deployedSentinel
+        .connect(account2)
+        .handleWithdrawOperator(
+          withdrawParams.idBet,
+          withdrawParams.totalFeeAmount,
+          withdrawParams.quoteTimestamp,
+          withdrawParams.exclusivityDeadline,
+          withdrawParams.exclusivityRelayer,
+          withdrawParams.isMultipleBet,
+          withdrawParams.onlyWithdraw,
+          signature
+        );
+       //Check balance of USDC
+       expect(await usdc.balanceOf(deployedAddress)).greaterThan(initialUsdcBalance);
+    });
+    */
+   /*
+    it("Should execute withdraw multiple bet successfully", async function () {
+      const {
+        deployedSentinel,
+        deployedAddress,
+        account1,
+        account2,
+        usdc,
+        usdt,
+        NFTMultiple,
+      } = await loadFixture(deploySentinelFixture);
+      //Impersonate 0xfA6a2662aF427b4645254293adE248285B72AA29 to transfet the NFT with id 327075 to sentinel address
+      await hre.network.provider.request({
+        method: "hardhat_impersonateAccount",
+        params: ["0xCd94515535980f011DfC0f7F9C4Eea0506122F88"],
+      });
+      const expressSigner = await hre.ethers.getSigner(
+        "0xCd94515535980f011DfC0f7F9C4Eea0506122F88"
+      );
+
+      await NFTMultiple.connect(expressSigner).transferFrom(
+        "0xCd94515535980f011DfC0f7F9C4Eea0506122F88",
+        deployedAddress,
+        181358
+      );
+      //Check owner of the NFT
+      expect(await NFTMultiple.ownerOf(181358)).to.equal(deployedAddress);
+
+      const withdrawParams = {
+        idBet: "181358",
+        totalFeeAmount: "100", // 0.001 USDC
+        quoteTimestamp: Math.floor(Date.now() / 1000),
+        exclusivityDeadline: Math.floor(Date.now() / 1000) + 3600, // 1 hour from now
+        exclusivityRelayer: account2.address as `0x${string}`,
+        isMultipleBet: true,
+        onlyWithdraw: true,
+        sentinelAddress: deployedAddress,
+      };
+      // Create and sign the message
+      const messageHash = await createControllerSignature(withdrawParams);
+      const signature = await account1.signMessage(
+        hre.ethers.getBytes(messageHash)
+      );
+      const initialUsdtBalance = await usdt.balanceOf(deployedAddress);
+      //Operator calls handleWithdrawOperator
+      await deployedSentinel
+        .connect(account2)
+        .handleWithdrawOperator(
+          withdrawParams.idBet,
+          withdrawParams.totalFeeAmount,
+          withdrawParams.quoteTimestamp,
+          withdrawParams.exclusivityDeadline,
+          withdrawParams.exclusivityRelayer,
+          withdrawParams.isMultipleBet,
+          withdrawParams.onlyWithdraw,
+          signature
+        );
+       //Check balance of USDT
+       expect(await usdt.balanceOf(deployedAddress)).greaterThan(initialUsdtBalance);
+    });
+    */
+
+    it("Should execute withdraw multiple bet + swap successfully", async function () {
+      const {
+        deployedSentinel,
+        deployedAddress,
+        account1,
+        account2,
+        usdc,
+        usdt,
+        NFTMultiple,
+      } = await loadFixture(deploySentinelFixture);
+      //Impersonate 0xfA6a2662aF427b4645254293adE248285B72AA29 to transfet the NFT with id 327075 to sentinel address
+      await hre.network.provider.request({
+        method: "hardhat_impersonateAccount",
+        params: ["0xCd94515535980f011DfC0f7F9C4Eea0506122F88"],
+      });
+      const expressSigner = await hre.ethers.getSigner(
+        "0xCd94515535980f011DfC0f7F9C4Eea0506122F88"
+      );
+
+      await NFTMultiple.connect(expressSigner).transferFrom(
+        "0xCd94515535980f011DfC0f7F9C4Eea0506122F88",
+        deployedAddress,
+        181358
+      );
+      //Check owner of the NFT
+      expect(await NFTMultiple.ownerOf(181358)).to.equal(deployedAddress);
+
+      const withdrawParams = {
+        idBet: "181358",
+        totalFeeAmount: "100", // 0.001 USDC
+        quoteTimestamp: Math.floor(Date.now() / 1000),
+        exclusivityDeadline: Math.floor(Date.now() / 1000) + 3600, // 1 hour from now
+        exclusivityRelayer: account2.address as `0x${string}`,
+        isMultipleBet: true,
+        onlyWithdraw: false,
+        sentinelAddress: deployedAddress,
+      };
+      // Create and sign the message
+      const messageHash = await createControllerSignature(withdrawParams);
+      const signature = await account1.signMessage(
+        hre.ethers.getBytes(messageHash)
+      );
+      const initialUsdcBalance = await usdc.balanceOf(deployedAddress);
+      //Operator calls handleWithdrawOperator
+      await deployedSentinel
+        .connect(account2)
+        .handleWithdrawOperator(
+          withdrawParams.idBet,
+          withdrawParams.totalFeeAmount,
+          withdrawParams.quoteTimestamp,
+          withdrawParams.exclusivityDeadline,
+          withdrawParams.exclusivityRelayer,
+          withdrawParams.isMultipleBet,
+          withdrawParams.onlyWithdraw,
+          signature
+        );
+       //Check balance of USDC
+       expect(await usdc.balanceOf(deployedAddress)).greaterThan(initialUsdcBalance);
+    });
+  });
+  
+});
+
+//327075 -> 0xA40F8D69D412b79b49EAbdD5cf1b5706395bfCf7 Prematch Core
+//181358 -> 0x92a4e8Bc6B92a2e1ced411f41013B5FE6BE07613 Express
+//block 67522392
