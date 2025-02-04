@@ -842,6 +842,7 @@ contract Sentinel is ReentrancyGuard, Pausable, IERC721Receiver {
         revert InvalidAmountForAcross();
       }
       uint256 amountOut = amountForAcross - totalFeeAmount;
+
       /*
       // Step 3: Call Across
       _sendToAcross(

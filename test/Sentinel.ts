@@ -19,7 +19,16 @@ async function createControllerSignature(params: {
   sentinelAddress: string;
 }) {
   const message = hre.ethers.solidityPacked(
-    ["uint256", "uint256", "uint32", "uint32", "address", "bool", "bool", "address"],
+    [
+      "uint256",
+      "uint256",
+      "uint32",
+      "uint32",
+      "address",
+      "bool",
+      "bool",
+      "address",
+    ],
     [
       params.idBet,
       params.totalFeeAmount,
@@ -173,7 +182,7 @@ describe("Sentinel", function () {
         conditions: ["100610060000000000265044270000000000000371278161"],
         outcomes: ["29"], // Two outcomes for multiple bet
         referrer: "0x216BeA48DE17eba784027a591DBD2866EF606EC6",
-        amount: "50000000", // 5 USDC
+        amount: "5000000", // 5 USDC
       };
 
       const betData = hre.ethers.AbiCoder.defaultAbiCoder().encode(
@@ -239,7 +248,7 @@ describe("Sentinel", function () {
         ],
         outcomes: ["29", "29"], // Two outcomes for multiple bet
         referrer: "0x216BeA48DE17eba784027a591DBD2866EF606EC6",
-        amount: "50000000", // 5 USDC
+        amount: "5000000", // 5 USDC
       };
 
       const betData = hre.ethers.AbiCoder.defaultAbiCoder().encode(
@@ -291,8 +300,10 @@ describe("Sentinel", function () {
         method: "hardhat_stopImpersonatingAccount",
         params: [ADDRESSES.ACROSS_GENERIC_HANDLER],
       });
-    });*/
-    /*
+    });
+    */
+    
+  
     it("Should execute only withdraw successfully", async function () {
       const {
         deployedSentinel,
@@ -351,8 +362,8 @@ describe("Sentinel", function () {
         );
        //Check balance of USDT
        expect(await usdt.balanceOf(deployedAddress)).greaterThan(initialUsdtBalance);
-    });*/
-/*
+    });
+    
     it("Should execute withdraw and swap successfully", async function () {
       const {
         deployedSentinel,
@@ -412,8 +423,7 @@ describe("Sentinel", function () {
        //Check balance of USDC
        expect(await usdc.balanceOf(deployedAddress)).greaterThan(initialUsdcBalance);
     });
-    */
-   /*
+    
     it("Should execute withdraw multiple bet successfully", async function () {
       const {
         deployedSentinel,
@@ -473,7 +483,6 @@ describe("Sentinel", function () {
        //Check balance of USDT
        expect(await usdt.balanceOf(deployedAddress)).greaterThan(initialUsdtBalance);
     });
-    */
 
     it("Should execute withdraw multiple bet + swap successfully", async function () {
       const {
@@ -531,13 +540,128 @@ describe("Sentinel", function () {
           withdrawParams.onlyWithdraw,
           signature
         );
-       //Check balance of USDC
-       expect(await usdc.balanceOf(deployedAddress)).greaterThan(initialUsdcBalance);
+      //Check balance of USDC
+      expect(await usdc.balanceOf(deployedAddress)).greaterThan(
+        initialUsdcBalance
+      );
     });
   });
-  
+  it("Should fail when signature is from wrong wallet", async function () {
+    const {
+      deployedSentinel,
+      deployedAddress,
+      account1,
+      account2,
+      NFTSingle,
+    } = await loadFixture(deploySentinelFixture);
+
+    // Setup NFT transfer
+    await hre.network.provider.request({
+      method: "hardhat_impersonateAccount",
+      params: ["0xfA6a2662aF427b4645254293adE248285B72AA29"],
+    });
+    const expressSigner = await hre.ethers.getSigner(
+      "0xfA6a2662aF427b4645254293adE248285B72AA29"
+    );
+
+    await NFTSingle.connect(expressSigner).transferFrom(
+      "0xfA6a2662aF427b4645254293adE248285B72AA29",
+      deployedAddress,
+      327075
+    );
+
+    const withdrawParams = {
+      idBet: "327075",
+      totalFeeAmount: "1000000",
+      quoteTimestamp: Math.floor(Date.now() / 1000),
+      exclusivityDeadline: Math.floor(Date.now() / 1000) + 3600,
+      exclusivityRelayer: account2.address as `0x${string}`,
+      isMultipleBet: false,
+      onlyWithdraw: true,
+      sentinelAddress: deployedAddress,
+    };
+
+    // Create signature with wrong account (account2 instead of controller account1)
+    const messageHash = await createControllerSignature(withdrawParams);
+    const wrongSignature = await account2.signMessage(
+      hre.ethers.getBytes(messageHash)
+    );
+
+    // Should fail when using wrong signature
+    await expect(
+      deployedSentinel
+        .connect(account2)
+        .handleWithdrawOperator(
+          withdrawParams.idBet,
+          withdrawParams.totalFeeAmount,
+          withdrawParams.quoteTimestamp,
+          withdrawParams.exclusivityDeadline,
+          withdrawParams.exclusivityRelayer,
+          withdrawParams.isMultipleBet,
+          withdrawParams.onlyWithdraw,
+          wrongSignature
+        )
+    ).to.be.revertedWithCustomError(deployedSentinel, "InvalidSignature");
+  });
+
+  it("Should fail when parameters don't match signature", async function () {
+    const {
+      deployedSentinel,
+      deployedAddress,
+      account1,
+      account2,
+      NFTSingle,
+    } = await loadFixture(deploySentinelFixture);
+
+    // Setup NFT transfer
+    await hre.network.provider.request({
+      method: "hardhat_impersonateAccount",
+      params: ["0xfA6a2662aF427b4645254293adE248285B72AA29"],
+    });
+    const expressSigner = await hre.ethers.getSigner(
+      "0xfA6a2662aF427b4645254293adE248285B72AA29"
+    );
+
+    await NFTSingle.connect(expressSigner).transferFrom(
+      "0xfA6a2662aF427b4645254293adE248285B72AA29",
+      deployedAddress,
+      327075
+    );
+
+    const withdrawParams = {
+      idBet: "327075",
+      totalFeeAmount: "1000000",
+      quoteTimestamp: Math.floor(Date.now() / 1000),
+      exclusivityDeadline: Math.floor(Date.now() / 1000) + 3600,
+      exclusivityRelayer: account2.address as `0x${string}`,
+      isMultipleBet: false,
+      onlyWithdraw: true,
+      sentinelAddress: deployedAddress,
+    };
+
+    // Create valid signature
+    const messageHash = await createControllerSignature(withdrawParams);
+    const signature = await account1.signMessage(
+      hre.ethers.getBytes(messageHash)
+    );
+
+    // Try to execute with different parameters than what was signed
+    const differentAmount = "2000000"; // Different amount than what was signed
+    await expect(
+      deployedSentinel
+        .connect(account2)
+        .handleWithdrawOperator(
+          withdrawParams.idBet,
+          differentAmount, // Using different amount
+          withdrawParams.quoteTimestamp,
+          withdrawParams.exclusivityDeadline,
+          withdrawParams.exclusivityRelayer,
+          withdrawParams.isMultipleBet,
+          withdrawParams.onlyWithdraw,
+          signature
+        )
+    ).to.be.revertedWithCustomError(deployedSentinel, "InvalidSignature");
+    
+  });
 });
 
-//327075 -> 0xA40F8D69D412b79b49EAbdD5cf1b5706395bfCf7 Prematch Core
-//181358 -> 0x92a4e8Bc6B92a2e1ced411f41013B5FE6BE07613 Express
-//block 67522392
