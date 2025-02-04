@@ -1,11 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-//TODO: change factory address as const, only factory modifier, change requiremenets to revert error
+//TODO: change factory address as const, only factory modifier
+//TODO: deploy quoter contract on worldchain
 
 //NOTES:
-//native token support (worldcoin) -> WETH (wrl) -> WETH (pol) <-> USDT (pol)
-//express address for multiple bets
 
 // ======================== Imports ========================
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
