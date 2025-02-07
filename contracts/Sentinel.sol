@@ -4,8 +4,6 @@ pragma solidity ^0.8.0;
 //TODO: change factory address as const, only factory modifier
 //TODO: deploy quoter contract on worldchain
 
-//NOTES:
-
 // ======================== Imports ========================
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -19,7 +17,6 @@ import "./utils/V3SpokePoolInterface.sol";
 import "./utils/IQuoter.sol";
 import "./azuro-protocol/IAzuroBet.sol";
 import "./azuro-protocol/IBet.sol";
-import "hardhat/console.sol";
 import "./azuro-protocol/ICoreBase.sol";
 
 // ======================== Contract Definition ========================
@@ -115,6 +112,7 @@ contract Sentinel is ReentrancyGuard, Pausable, IERC721Receiver {
   address public expressAddress; // Express address for multiple bets
   address public quoter; // Uniswap quoter address
   address public usdcAddress; // USDC token address
+  address public usdcAddressDestination; // USDC token address on destination chain
   address public usdtAddress; // USDT token address
   uint24 public poolFee; // Uniswap pool fee
 
@@ -188,6 +186,7 @@ contract Sentinel is ReentrancyGuard, Pausable, IERC721Receiver {
     ILP _lp,
     address _azuroBet,
     address _usdcAddress,
+    address _usdcAddressDestination,
     address _usdtAddress
   ) external /*onlyFactory*/ {
     _initializeCore(
@@ -197,6 +196,7 @@ contract Sentinel is ReentrancyGuard, Pausable, IERC721Receiver {
       _lp,
       _azuroBet,
       _usdcAddress,
+      _usdcAddressDestination,
       _usdtAddress
     );
   }
@@ -240,6 +240,7 @@ contract Sentinel is ReentrancyGuard, Pausable, IERC721Receiver {
     ILP _lp,
     address _azuroBet,
     address _usdcAddress,
+    address _usdcAddressDestination,
     address _usdtAddress
   ) private {
     if (initialized) {
@@ -251,6 +252,7 @@ contract Sentinel is ReentrancyGuard, Pausable, IERC721Receiver {
     if (address(_lp) == address(0)) revert InvalidLPAddress();
     if (address(_azuroBet) == address(0)) revert InvalidAzuroBetAddress();
     if (_usdcAddress == address(0)) revert InvalidUSDCAddress();
+    if (_usdcAddressDestination == address(0)) revert InvalidUSDCAddress();
     if (_usdtAddress == address(0)) revert InvalidUSDTAddress();
 
     operator = _operator;
@@ -259,6 +261,7 @@ contract Sentinel is ReentrancyGuard, Pausable, IERC721Receiver {
     lp = _lp;
     azuroBet = _azuroBet;
     usdcAddress = _usdcAddress;
+    usdcAddressDestination = _usdcAddressDestination;
     usdtAddress = _usdtAddress;
     initialized = true;
 
@@ -776,7 +779,7 @@ contract Sentinel is ReentrancyGuard, Pausable, IERC721Receiver {
       address(this),
       controller,
       usdcAddress,
-      usdtAddress,
+      usdcAddressDestination,
       amountIn,
       amountOut, //amount out is amount - total relayer fees
       destinationChainId,
@@ -843,7 +846,7 @@ contract Sentinel is ReentrancyGuard, Pausable, IERC721Receiver {
       }
       uint256 amountOut = amountForAcross - totalFeeAmount;
 
-      /*
+      
       // Step 3: Call Across
       _sendToAcross(
         amountForAcross,
@@ -852,7 +855,7 @@ contract Sentinel is ReentrancyGuard, Pausable, IERC721Receiver {
         exclusivityDeadline,
         exclusivityRelayer
       );
-      */
+      
     }
   }
 

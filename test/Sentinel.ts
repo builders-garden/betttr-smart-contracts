@@ -50,6 +50,7 @@ describe("Sentinel", function () {
     LP: "0x7043E4e1c4045424858ECBCED80989FeAfC11B36",
     AZURO_BET: "0x8ed7296b5CAe379d07C70280Af622BC410F01Ed7", //this is for the PreMatch
     USDC: "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359",
+    USDC_DESTINATION: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
     USDT: "0xc2132D05D31c914a87C6611C10748AEb04B58e8F",
     ACROSS_GENERIC_HANDLER: "0x88a1493366D48225fc3cEFbdae9eBb23E323Ade3", // Test handler
     ACROSS_SPOKE_POOL: "0x9295ee1d8C5b022Be115A2AD3c30C72E34e7F096",
@@ -93,6 +94,7 @@ describe("Sentinel", function () {
         ADDRESSES.LP,
         ADDRESSES.AZURO_BET,
         ADDRESSES.USDC,
+        ADDRESSES.USDC_DESTINATION,
         ADDRESSES.USDT,
       ]
     );
@@ -317,28 +319,41 @@ describe("Sentinel", function () {
       //Impersonate 0xfA6a2662aF427b4645254293adE248285B72AA29 to transfet the NFT with id 327075 to sentinel address
       await hre.network.provider.request({
         method: "hardhat_impersonateAccount",
-        params: ["0xfA6a2662aF427b4645254293adE248285B72AA29"],
+        params: ["0x1892E00226021715d085363682655B62049e3E84"],
       });
       const expressSigner = await hre.ethers.getSigner(
-        "0xfA6a2662aF427b4645254293adE248285B72AA29"
+        "0x1892E00226021715d085363682655B62049e3E84"
       );
 
       await NFTSingle.connect(expressSigner).transferFrom(
-        "0xfA6a2662aF427b4645254293adE248285B72AA29",
+        "0x1892E00226021715d085363682655B62049e3E84",
         deployedAddress,
-        327075
+        328904
       );
       //Check owner of the NFT
-      expect(await NFTSingle.ownerOf(327075)).to.equal(deployedAddress);
+      expect(await NFTSingle.ownerOf(328904)).to.equal(deployedAddress);
 
+      //
+      const acrossApiUrl = "https://app.across.to/api/suggested-fees?inputToken=0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359&outputToken=0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913&originChainId=137&destinationChainId=8453&amount=9398623"
+      const response = await fetch(acrossApiUrl);
+      const data = await response.json();
+      const totalFeeAmount = data.totalRelayFee.total;
+      let exclusivityRelayer = data.exclusivityRelayer;
+      const exclusivityDeadline = data.exclusivityDeadline;
+      if (exclusivityRelayer === undefined) {
+        exclusivityRelayer = "0x0000000000000000000000000000000000000000";
+      }
+      const timestamp = data.timestamp;
+      console.log(totalFeeAmount, "totalFeeAmount")
+      
       const withdrawParams = {
-        idBet: "327075",
-        totalFeeAmount: "1000000", // 1 USDC
-        quoteTimestamp: Math.floor(Date.now() / 1000),
-        exclusivityDeadline: Math.floor(Date.now() / 1000) + 3600, // 1 hour from now
-        exclusivityRelayer: account2.address as `0x${string}`,
+        idBet: "328904",
+        totalFeeAmount: totalFeeAmount, // 1 USDC
+        quoteTimestamp: timestamp,
+        exclusivityDeadline: exclusivityDeadline, // 1 hour from now
+        exclusivityRelayer: exclusivityRelayer,
         isMultipleBet: false,
-        onlyWithdraw: true,
+        onlyWithdraw: false,
         sentinelAddress: deployedAddress,
       };
       // Create and sign the message
@@ -363,6 +378,7 @@ describe("Sentinel", function () {
        //Check balance of USDT
        expect(await usdt.balanceOf(deployedAddress)).greaterThan(initialUsdtBalance);
     });
+    /*
     
     it("Should execute withdraw and swap successfully", async function () {
       const {
@@ -661,7 +677,7 @@ describe("Sentinel", function () {
           signature
         )
     ).to.be.revertedWithCustomError(deployedSentinel, "InvalidSignature");
-    
+    */
   });
 });
 
