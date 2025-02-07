@@ -64,7 +64,7 @@ describe("Sentinel", function () {
     PROTOCOL_FEE_PERCENTAGE: 1000,
     REFERRAL_FEE_PERCENTAGE: 100,
     POOL_FEE: 100, // 0.02%
-    DESTINATION_CHAIN_ID: 137, // Polygon mainnet
+    DESTINATION_CHAIN_ID: 8453, // Base mainnet
   };
 
   async function deploySentinelFixture() {
