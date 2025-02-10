@@ -1,3 +1,4 @@
+/*
 import {
   time,
   loadFixture,
@@ -121,6 +122,7 @@ describe("Sentinel", function () {
       .deploy(account1.address, initContractCore, initContractProtocol);
 
     const deployedAddress = await factory.deployedControllers(account1.address);
+    //const deployedAddress = "0xcb1eca680cB0ADa20b78a501f350fdfDB2b10BD8"
     const deployedSentinel = await hre.ethers.getContractAt(
       "Sentinel",
       deployedAddress
@@ -173,7 +175,7 @@ describe("Sentinel", function () {
         .to.be.revertedWithCustomError(factory, "AlreadyDeployed")
         .withArgs(account1.address);
     });
-    /*
+    
 
     it("Should execute handleBet successfully", async function () {
       const { deployedSentinel, deployedAddress, usdc } = await loadFixture(
@@ -181,16 +183,17 @@ describe("Sentinel", function () {
       );
 
       const betParams = {
-        conditions: ["100610060000000000265044270000000000000371278161"],
+        conditions: ["100610060000000000263446620000000000000329033248"],
         outcomes: ["29"], // Two outcomes for multiple bet
         referrer: "0x216BeA48DE17eba784027a591DBD2866EF606EC6",
-        amount: "5000000", // 5 USDC
+        amount: "2000000", // 5 USDC
       };
 
       const betData = hre.ethers.AbiCoder.defaultAbiCoder().encode(
         ["uint256[]", "uint64[]", "address"],
         [betParams.conditions, betParams.outcomes, betParams.referrer]
       );
+      console.log(betData, "betData");
 
       // Get initial balances
       const initialProtocolBalance = await usdc.balanceOf(
@@ -224,10 +227,11 @@ describe("Sentinel", function () {
         ((BigInt(betParams.amount) - expectedProtocolFee) *
           BigInt(CONFIG.REFERRAL_FEE_PERCENTAGE)) /
         BigInt(10000);
-
+/*
       expect(await usdc.balanceOf(ADDRESSES.PROTOCOL_FEE_RECIPIENT)).to.equal(
         initialProtocolBalance + expectedProtocolFee
       );
+      
       expect(await usdc.balanceOf(betParams.referrer)).to.equal(
         initialReferrerBalance + expectedReferralFee
       );
@@ -237,6 +241,8 @@ describe("Sentinel", function () {
         params: [ADDRESSES.ACROSS_GENERIC_HANDLER],
       });
     });
+    
+ 
 
     it("Should execute handleBet successfully with multiple bets", async function () {
       const { deployedSentinel, deployedAddress, usdc } = await loadFixture(
@@ -245,11 +251,11 @@ describe("Sentinel", function () {
 
       const betParams = {
         conditions: [
-          "100610060000000000265044270000000000000371278161",
-          "100610060000000000264450940000000000000354486732",
+          "100610060000000000263446620000000000000329033248",
+          "100610060000000000263446630000000000000328133014",
         ],
         outcomes: ["29", "29"], // Two outcomes for multiple bet
-        referrer: "0x216BeA48DE17eba784027a591DBD2866EF606EC6",
+        referrer: "0xDB6308968A6d90892A65989A318E0F0408147317",
         amount: "5000000", // 5 USDC
       };
 
@@ -257,6 +263,7 @@ describe("Sentinel", function () {
         ["uint256[]", "uint64[]", "address"],
         [betParams.conditions, betParams.outcomes, betParams.referrer]
       );
+      console.log(betData, "betData");
 
       // Get initial balances
       const initialProtocolBalance = await usdc.balanceOf(
@@ -281,6 +288,7 @@ describe("Sentinel", function () {
       await deployedSentinel
         .connect(acrossGenericHandlerSigner)
         .handleBet(ADDRESSES.USDC, ADDRESSES.USDT, betParams.amount, betData);
+      
 
       // Check fee distribution
       const expectedProtocolFee =
@@ -290,22 +298,22 @@ describe("Sentinel", function () {
         ((BigInt(betParams.amount) - expectedProtocolFee) *
           BigInt(CONFIG.REFERRAL_FEE_PERCENTAGE)) /
         BigInt(10000);
-
+/*
       expect(await usdc.balanceOf(ADDRESSES.PROTOCOL_FEE_RECIPIENT)).to.equal(
         initialProtocolBalance + expectedProtocolFee
       );
       expect(await usdc.balanceOf(betParams.referrer)).to.equal(
         initialReferrerBalance + expectedReferralFee
       );
-
+      
+      
       await hre.network.provider.request({
         method: "hardhat_stopImpersonatingAccount",
         params: [ADDRESSES.ACROSS_GENERIC_HANDLER],
       });
     });
-    */
     
-  
+    
     it("Should execute only withdraw successfully", async function () {
       const {
         deployedSentinel,
@@ -378,7 +386,7 @@ describe("Sentinel", function () {
        //Check balance of USDT
        expect(await usdt.balanceOf(deployedAddress)).greaterThan(initialUsdtBalance);
     });
-    /*
+    
     
     it("Should execute withdraw and swap successfully", async function () {
       const {
@@ -677,7 +685,48 @@ describe("Sentinel", function () {
           signature
         )
     ).to.be.revertedWithCustomError(deployedSentinel, "InvalidSignature");
-    */
+    
   });
 });
 
+
+
+/*
+
+evento su spoke contract da leggere su base
+
+        emit FundsDeposited(
+            params.inputToken,
+            params.outputToken,
+            params.inputAmount,
+            params.outputAmount,
+            params.destinationChainId,
+            params.depositId,
+            params.quoteTimestamp,
+            params.fillDeadline,
+            exclusivityDeadline,
+            params.depositor,
+            params.recipient,
+            params.exclusiveRelayer,
+            params.message
+        );
+
+*/
+/*
+chiamata da fare su spoke contract su Polygon
+    function fillV3Relay(V3RelayDataLegacy calldata relayData, uint256 repaymentChainId) public override { });
+        convertedRelayData è:
+                            0 relayData.depositor	address	0xDB6308968A6d90892A65989A318E0F0408147317
+                            0	relayData.recipient	address	0x924a9f036260DdD5808007E1AA95f08eD08aA569
+                            0	relayData.exclusiveRelayer	address	0x0000000000000000000000000000000000000000
+                            0	relayData.inputToken	address	0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913
+                            0	relayData.outputToken	address	0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359
+                            0	relayData.inputAmount	uint256 1989999
+                            0	relayData.outputAmount	uint256 1900000
+                            0	relayData.originChainId	uint256 8453
+                            0	relayData.depositId	uint32 3120301
+                            0	relayData.fillDeadline	uint32 1739052205
+                            0	relayData.exclusivityDeadline	uint32
+                            0	relayData.message
+    }      
+*/

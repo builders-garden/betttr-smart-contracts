@@ -19,13 +19,14 @@ import "./azuro-protocol/IAzuroBet.sol";
 import "./azuro-protocol/IBet.sol";
 import "./azuro-protocol/ICoreBase.sol";
 
+
 // ======================== Contract Definition ========================
 /**
  * @title Sentinel
  * @notice This contract handles cross-chain sports betting operations using Azuro Protocol and Across Bridge
  * @dev Acts as a destination chain contract that receives bets and processes withdrawals
  */
-contract Sentinel is ReentrancyGuard, Pausable, IERC721Receiver {
+contract SentinelV2 is ReentrancyGuard, Pausable, IERC721Receiver {
   using SafeERC20 for IERC20;
 
   // ======================== Events ========================
@@ -83,10 +84,15 @@ contract Sentinel is ReentrancyGuard, Pausable, IERC721Receiver {
   error InvalidTokenAddress();
   error InvalidAmount();
   error PausedState();
-  error InvalidSignature();
   error ArrayLengthsMismatch();
   error EmptyBetArrays();
   error DuplicateConditionIds();
+  error InvalidSignatureLength();
+  error InvalidSignatureS();
+  error InvalidSignatureV();
+  error InvalidSignature();
+  error InvalidSigner();
+  error NonceAlreadyUsed(bytes32 nonce);
 
   // ======================== Constants ========================
   uint256 private constant BASIS_POINTS = 10000; // 100% (100 * 100 = 10000)
@@ -121,6 +127,23 @@ contract Sentinel is ReentrancyGuard, Pausable, IERC721Receiver {
   ILP public lp; // Azuro liquidity pool interface
   bool public initialized; // Initialization status
   bool public protocolInitialized; // Protocol initialization status
+
+  // Domain Separator for EIP-712
+  bytes32 private DOMAIN_SEPARATOR;
+
+  // Add nonce mapping
+  mapping(bytes32 => bool) public usedNonces;
+
+  // Update type hashes to include nonce
+  bytes32 private constant BET_TYPEHASH =
+    keccak256(
+      "Bet(address tokenIn,address tokenOut,uint256 amountIn,bytes32 betHash,address verifyingContract,bytes32 nonce)"
+    );
+
+  bytes32 private constant WITHDRAW_TYPEHASH =
+    keccak256(
+      "Withdraw(uint256 idBet,uint256 amountOut,uint32 quoteTimestamp,uint32 exclusivityDeadline,address exclusivityRelayer,bool isMultipleBet,bool onlyWithdraw,address verifyingContract,bytes32 nonce)"
+    );
 
   // ======================== Modifiers ========================
 
@@ -312,6 +335,18 @@ contract Sentinel is ReentrancyGuard, Pausable, IERC721Receiver {
     destinationChainId = _destinationChainId;
     protocolInitialized = true;
 
+    DOMAIN_SEPARATOR = keccak256(
+      abi.encode(
+        keccak256(
+          "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"
+        ),
+        keccak256("BetVerifier"),
+        keccak256("1"),
+        137,
+        address(this)
+      )
+    );
+
     emit ProtocolInitialized();
   }
 
@@ -434,7 +469,6 @@ contract Sentinel is ReentrancyGuard, Pausable, IERC721Receiver {
 
   /**
    * @notice Handles incoming bets from the source chain
-   * @dev Only callable by the Across handler
    * @param tokenIn Source token address
    * @param tokenOut Destination token address
    * @param amountIn Amount of tokens being sent
@@ -444,16 +478,24 @@ contract Sentinel is ReentrancyGuard, Pausable, IERC721Receiver {
     address tokenIn,
     address tokenOut,
     uint256 amountIn,
-    bytes memory bet
+    bytes memory bet,
+    bytes memory controllerSignature
   ) external nonReentrant whenNotPausedOverride {
-    if (msg.sender != acrossGenericHandler) {
-      revert NotAcrossHandler(acrossGenericHandler);
-    }
     if (tokenIn == address(0) || tokenOut == address(0)) {
       revert InvalidTokenAddress();
     }
     if (amountIn == 0) {
       revert InvalidAmount();
+    }
+    if (msg.sender != controller) {
+      // Verify controller signature
+      _verifyControllerSignatureBet(
+        tokenIn,
+        tokenOut,
+        amountIn,
+        bet,
+        controllerSignature
+      );
     }
 
     IERC20(tokenIn).safeTransferFrom(
@@ -528,51 +570,22 @@ contract Sentinel is ReentrancyGuard, Pausable, IERC721Receiver {
     uint32 exclusivityDeadline,
     address exclusivityRelayer,
     bool isMultipleBet,
-    bool onlyWithdraw
-  ) external onlyController nonReentrant whenNotPausedOverride {
-    _handleWithdraw(
-      idBet,
-      totalFeeAmount,
-      quoteTimestamp,
-      exclusivityDeadline,
-      exclusivityRelayer,
-      isMultipleBet,
-      onlyWithdraw
-    );
-    emit WithdrawBet(idBet);
-  }
-
-  /**
-   * @notice Processes bet withdrawals and sends funds back across the bridge
-   * @dev Only callable by the owner or operator
-   * @param idBet Bet ID to withdraw
-   * @param totalFeeAmount Amount to withdraw
-   * @param quoteTimestamp Timestamp for exclusivity
-   * @param exclusivityDeadline Deadline for exclusivity
-   * @param exclusivityRelayer Relayer address
-   * @param onlyWithdraw If true, only withdraws from Azuro without swapping or bridging
-   */
-  function handleWithdrawOperator(
-    uint256 idBet,
-    uint256 totalFeeAmount,
-    uint32 quoteTimestamp,
-    uint32 exclusivityDeadline,
-    address exclusivityRelayer,
-    bool isMultipleBet,
     bool onlyWithdraw,
     bytes memory controllerSignature
-  ) external onlyOperator nonReentrant whenNotPausedOverride {
-    // Verify controller signature
-    _verifyControllerSignature(
-      idBet,
-      totalFeeAmount,
-      quoteTimestamp,
-      exclusivityDeadline,
-      exclusivityRelayer,
-      isMultipleBet,
-      onlyWithdraw,
-      controllerSignature
-    );
+  ) external nonReentrant whenNotPausedOverride {
+    if (msg.sender != controller) {
+      // Verify controller signature
+      _verifyControllerSignatureWithdraw(
+        idBet,
+        totalFeeAmount,
+        quoteTimestamp,
+        exclusivityDeadline,
+        exclusivityRelayer,
+        isMultipleBet,
+        onlyWithdraw,
+        controllerSignature
+      );
+    }
     _handleWithdraw(
       idBet,
       totalFeeAmount,
@@ -759,7 +772,7 @@ contract Sentinel is ReentrancyGuard, Pausable, IERC721Receiver {
     uint256 protocolFee = _calculatePercentage(amount, protocolFeePercentage);
     if (protocolFee == 0) {
       return 0;
-    }
+    } 
     IERC20(usdcAddress).safeTransfer(protocolFeeRecipient, protocolFee);
     uint256 amountAfterFee = amount - protocolFee;
     return amountAfterFee;
@@ -786,7 +799,7 @@ contract Sentinel is ReentrancyGuard, Pausable, IERC721Receiver {
       usdcAddress,
       usdcAddressDestination,
       amountIn,
-      amountOut, //amount out is amount - total relayer fees
+      amountOut, //amount out is calculated as input amount - relayer fees
       destinationChainId,
       exclusivityRelayer,
       quoteTimestamp,
@@ -850,7 +863,6 @@ contract Sentinel is ReentrancyGuard, Pausable, IERC721Receiver {
         revert InvalidAmountForAcross();
       }
       uint256 amountOut = amountForAcross - totalFeeAmount;
-
       // Step 3: Call Across
       _sendToAcross(
         amountForAcross,
@@ -863,7 +875,73 @@ contract Sentinel is ReentrancyGuard, Pausable, IERC721Receiver {
   }
 
   // Add this function to verify signatures
-  function _verifyControllerSignature(
+  function _verifyControllerSignatureBet(
+    address tokenIn,
+    address tokenOut,
+    uint256 amountIn,
+    bytes memory bet,
+    bytes memory signature
+  ) internal {
+    if (signature.length != 128) revert InvalidSignatureLength();
+
+    // Split signature into r, s, v, and nonce
+    bytes32 r;
+    bytes32 s;
+    uint8 v;
+    bytes32 nonce;
+    assembly {
+      // Load the first 32 bytes (r)
+      r := mload(add(signature, 32))
+      // Load the next 32 bytes (s)
+      s := mload(add(signature, 64))
+      // Load v from the next 32 bytes (taking only the last byte)
+      v := byte(31, mload(add(signature, 96)))
+      // Load the final 32 bytes (nonce)
+      nonce := mload(add(signature, 128))
+    }
+
+    // Check if nonce has been used
+    if (usedNonces[nonce]) revert NonceAlreadyUsed(nonce);
+
+    // Mark nonce as used
+    usedNonces[nonce] = true;
+
+    // Rest of signature validation
+    if (
+      uint256(s) >
+      0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF5D576E7357A4501DDFE92F46681B20A0
+    ) {
+      revert InvalidSignatureS();
+    }
+
+    if (v != 27 && v != 28) {
+      revert InvalidSignatureV();
+    }
+
+    bytes32 betHash = keccak256(bet);
+
+    bytes32 structHash = keccak256(
+      abi.encode(
+        BET_TYPEHASH,
+        tokenIn,
+        tokenOut,
+        amountIn,
+        betHash,
+        address(this),
+        nonce
+      )
+    );
+
+    bytes32 hash = keccak256(
+      abi.encodePacked("\x19\x01", DOMAIN_SEPARATOR, structHash)
+    );
+
+    address signer = ecrecover(hash, v, r, s);
+    if (signer == address(0)) revert InvalidSignature();
+    if (signer != controller) revert InvalidSigner();
+  }
+
+  function _verifyControllerSignatureWithdraw(
     uint256 idBet,
     uint256 amountOut,
     uint32 quoteTimestamp,
@@ -872,10 +950,45 @@ contract Sentinel is ReentrancyGuard, Pausable, IERC721Receiver {
     bool isMultipleBet,
     bool onlyWithdraw,
     bytes memory signature
-  ) internal view {
-    // Create message hash that matches what controller signed
-    bytes32 messageHash = keccak256(
-      abi.encodePacked(
+  ) internal {
+    if (signature.length != 128) revert InvalidSignatureLength();
+
+    // Split signature into r, s, v, and nonce
+    bytes32 r;
+    bytes32 s;
+    uint8 v;
+    bytes32 nonce;
+    assembly {
+      // Load the first 32 bytes (r)
+      r := mload(add(signature, 32))
+      // Load the next 32 bytes (s)
+      s := mload(add(signature, 64))
+      // Load v from the next 32 bytes (taking only the last byte)
+      v := byte(31, mload(add(signature, 96)))
+      // Load the final 32 bytes (nonce)
+      nonce := mload(add(signature, 128))
+    }
+
+    // Check if nonce has been used
+    if (usedNonces[nonce]) revert NonceAlreadyUsed(nonce);
+
+    // Mark nonce as used
+    usedNonces[nonce] = true;
+
+    if (
+      uint256(s) >
+      0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF5D576E7357A4501DDFE92F46681B20A0
+    ) {
+      revert InvalidSignatureS();
+    }
+
+    if (v != 27 && v != 28) {
+      revert InvalidSignatureV();
+    }
+
+    bytes32 structHash = keccak256(
+      abi.encode(
+        WITHDRAW_TYPEHASH,
         idBet,
         amountOut,
         quoteTimestamp,
@@ -883,31 +996,18 @@ contract Sentinel is ReentrancyGuard, Pausable, IERC721Receiver {
         exclusivityRelayer,
         isMultipleBet,
         onlyWithdraw,
-        address(this)
+        address(this),
+        nonce
       )
     );
-    // Create ethereum signed message hash
-    bytes32 ethSignedMessageHash = keccak256(
-      abi.encodePacked("\x19Ethereum Signed Message:\n32", messageHash)
+
+    bytes32 hash = keccak256(
+      abi.encodePacked("\x19\x01", DOMAIN_SEPARATOR, structHash)
     );
 
-    // Extract v, r, s from signature using assembly
-    bytes32 r;
-    bytes32 s;
-    uint8 v;
-    assembly {
-      r := mload(add(signature, 0x20))
-      s := mload(add(signature, 0x40))
-      v := byte(0, mload(add(signature, 0x60)))
-    }
-
-    // Recover signer address
-    address signer = ecrecover(ethSignedMessageHash, v, r, s);
-
-    // Verify signer is controller
-    if (signer != controller) {
-      revert InvalidSignature();
-    }
+    address signer = ecrecover(hash, v, r, s);
+    if (signer == address(0)) revert InvalidSignature();
+    if (signer != controller) revert InvalidSigner();
   }
 
   /**
