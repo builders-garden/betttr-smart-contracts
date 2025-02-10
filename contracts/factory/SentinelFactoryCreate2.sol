@@ -41,7 +41,7 @@ contract SentinelFactoryCreate2 {
     address user,
     bytes memory initContractCore,
     bytes memory initContractProtocol
-  ) external payable onlyOwner returns (address) {
+  ) external onlyOwner returns (address) {
     // Check if user already has a deployed controller
     if (deployedControllers[user] != address(0)) {
       revert AlreadyDeployed(user);
