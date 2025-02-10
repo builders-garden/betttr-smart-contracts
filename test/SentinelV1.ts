@@ -8,8 +8,8 @@ import hre from "hardhat";
 import { ERC20ABI } from "./ERC20ABI";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
 
-// Helper function for signature creation
-async function createControllerSignature(
+// Helper function for signature creation for Withdraw operations
+async function createWithdrawSignature(
   account1: HardhatEthersSigner,
   params: {
     idBet: string;
@@ -22,13 +22,13 @@ async function createControllerSignature(
     sentinelAddress: string;
   }
 ) {
-  // Create a random nonce
-  const nonce = hre.ethers.randomBytes(32);
+  // Generate a random 32-byte nonce and convert it to a hex string.
+  const nonce = hre.ethers.hexlify(hre.ethers.randomBytes(32));
 
   const domain = {
     name: "BetVerifier",
     version: "1",
-    chainId: await account1.provider.getNetwork().then((n) => n.chainId),
+    chainId: (await account1.provider.getNetwork()).chainId,
     verifyingContract: params.sentinelAddress,
   };
 
@@ -58,28 +58,18 @@ async function createControllerSignature(
     nonce: nonce,
   };
 
-  // Sign using EIP-712
+  // Sign the typed data using EIP-712.
+  // This returns a standard 65-byte signature (r (32 bytes) + s (32 bytes) + v (1 byte)).
   const signature = await account1.signTypedData(domain, types, value);
 
-  // Split signature into r,s,v components
-  const sig = hre.ethers.Signature.from(signature);
-
-  // Create a properly padded v value (32 bytes)
-  const paddedV = new Uint8Array(32);
-  paddedV[31] = sig.yParity ? 28 : 27;
-
-  // Return signature components and nonce separately
   return {
-    signature: hre.ethers.concat([
-      sig.r, // 32 bytes for r
-      sig.s, // 32 bytes for s
-      paddedV, // 32 bytes for v
-    ]),
+    signature,
     nonce,
   };
 }
 
-// Update helper function for bet signatures
+
+// Update helper function for bet signatures (returns standard 65-byte signature)
 async function createBetSignature(
   account1: HardhatEthersSigner,
   params: {
@@ -90,13 +80,13 @@ async function createBetSignature(
     verifyingContract: string;
   }
 ) {
-  // Create a random nonce
-  const nonce = hre.ethers.randomBytes(32);
+  // Create a random nonce as a hex string (32 bytes)
+  const nonce = hre.ethers.hexlify(hre.ethers.randomBytes(32));
 
   const domain = {
     name: "BetVerifier",
     version: "1",
-    chainId: await account1.provider.getNetwork().then((n) => n.chainId),
+    chainId: (await account1.provider.getNetwork()).chainId,
     verifyingContract: params.verifyingContract,
   };
 
@@ -111,7 +101,9 @@ async function createBetSignature(
     ],
   };
 
+  // Compute the hash of the bet data
   const betHash = hre.ethers.keccak256(params.bet);
+
   const value = {
     tokenIn: params.tokenIn,
     tokenOut: params.tokenOut,
@@ -121,26 +113,16 @@ async function createBetSignature(
     nonce: nonce,
   };
 
-  // Sign using EIP-712
+  // Sign the typed data using EIP-712.
+  // This returns a standard 65-byte signature (r (32 bytes) + s (32 bytes) + v (1 byte)).
   const signature = await account1.signTypedData(domain, types, value);
 
-  // Split signature into r,s,v components
-  const sig = hre.ethers.Signature.from(signature);
-
-  // Create a properly padded v value (32 bytes)
-  const paddedV = new Uint8Array(32);
-  paddedV[31] = sig.yParity ? 28 : 27;
-
-  // Return signature components and nonce separately
   return {
-    signature: hre.ethers.concat([
-      sig.r, // 32 bytes for r
-      sig.s, // 32 bytes for s
-      paddedV, // 32 bytes for v
-    ]),
+    signature,
     nonce,
   };
 }
+
 
 describe("Sentinel", function () {
   // Test configuration
@@ -279,7 +261,7 @@ describe("Sentinel", function () {
         await loadFixture(deploySentinelFixture);
 
       const betParams = {
-        conditions: ["100610060000000000263918750000000000000378650531"],
+        conditions: ["100610060000000000264832210000000000000341307768"],
         outcomes: ["29"],
         referrer: "0x216BeA48DE17eba784027a591DBD2866EF606EC6",
         amount: "2000000", // 2 USDC
@@ -484,7 +466,7 @@ describe("Sentinel", function () {
       };
 
       // Create signature
-      const { signature, nonce } = await createControllerSignature(
+      const { signature, nonce } = await createWithdrawSignature(
         account1,
         withdrawParams
       );

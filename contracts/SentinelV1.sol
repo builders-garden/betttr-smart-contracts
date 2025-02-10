@@ -2,7 +2,8 @@
 pragma solidity ^0.8.0;
 
 //TODO: change factory address as const
-//TODO: deploy quoter contract on worldchain
+//NOTES:
+//deploy quoter contract on worldchain
 
 // ======================== Imports ========================
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -11,6 +12,7 @@ import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
+import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "./utils/ISwapRouter.sol";
 import "./azuro-protocol/ILP.sol";
 import "./utils/V3SpokePoolInterface.sol";
@@ -29,8 +31,8 @@ contract SentinelV1 is ReentrancyGuard, Pausable, IERC721Receiver {
   using SafeERC20 for IERC20;
 
   // ======================== Events ========================
-  event BetPlaced(uint256 indexed idBet);
-  event WithdrawBet(uint256 indexed idBet);
+  event BetPlaced(uint256 indexed idBet, bool isMultipleBet);
+  event WithdrawBet(uint256 indexed idBet, bool isMultipleBet, bool onlyWithdraw);
   event OperatorChanged(
     address indexed oldOperator,
     address indexed newOperator
@@ -131,7 +133,8 @@ contract SentinelV1 is ReentrancyGuard, Pausable, IERC721Receiver {
   bytes32 private DOMAIN_SEPARATOR;
 
   // Add nonce mapping
-  mapping(bytes32 => bool) public usedNonces;
+  mapping(bytes32 => bool) public usedBetNonces;
+  mapping(bytes32 => bool) public usedWithdrawNonces;
 
   // Update type hashes to include nonce
   bytes32 private constant BET_TYPEHASH =
@@ -145,16 +148,6 @@ contract SentinelV1 is ReentrancyGuard, Pausable, IERC721Receiver {
     );
 
   // ======================== Modifiers ========================
-
-  /**
-   * @notice Ensures caller is either owner or operator
-   */
-  modifier onlyControllerOrOperator() {
-    if (msg.sender != controller && msg.sender != operator) {
-      revert NotControllerOrOperator(msg.sender);
-    }
-    _;
-  }
 
   /**
    * @notice Ensures caller is operator
@@ -358,7 +351,7 @@ contract SentinelV1 is ReentrancyGuard, Pausable, IERC721Receiver {
    */
   function setOperator(
     address _operator
-  ) external onlyController whenNotPausedOverride {
+  ) external onlyOperator whenNotPausedOverride {
     if (_operator == address(0)) revert InvalidOperatorAddress();
     address oldOperator = operator;
     operator = _operator;
@@ -372,7 +365,7 @@ contract SentinelV1 is ReentrancyGuard, Pausable, IERC721Receiver {
    */
   function setProtocolFeeRecipient(
     address _protocolFeeRecipient
-  ) external onlyController whenNotPausedOverride {
+  ) external onlyOperator whenNotPausedOverride {
     if (_protocolFeeRecipient == address(0))
       revert InvalidProtocolFeeRecipientAddress();
     address oldRecipient = protocolFeeRecipient;
@@ -387,7 +380,7 @@ contract SentinelV1 is ReentrancyGuard, Pausable, IERC721Receiver {
    */
   function setProtocolFeePercentage(
     uint256 _protocolFeePercentage
-  ) external onlyController whenNotPausedOverride {
+  ) external onlyOperator whenNotPausedOverride {
     if (_protocolFeePercentage == 0) revert InvalidProtocolFeePercentage();
     uint256 oldFee = protocolFeePercentage;
     protocolFeePercentage = _protocolFeePercentage;
@@ -401,7 +394,7 @@ contract SentinelV1 is ReentrancyGuard, Pausable, IERC721Receiver {
    */
   function setReferralFeePercentage(
     uint256 _referralFeePercentage
-  ) external onlyController whenNotPausedOverride {
+  ) external onlyOperator whenNotPausedOverride {
     if (_referralFeePercentage == 0) revert InvalidReferralFeePercentage();
     uint256 oldFee = referralFeePercentage;
     referralFeePercentage = _referralFeePercentage;
@@ -415,7 +408,7 @@ contract SentinelV1 is ReentrancyGuard, Pausable, IERC721Receiver {
    */
   function setPoolFee(
     uint24 _poolFee
-  ) external onlyController whenNotPausedOverride {
+  ) external onlyOperator whenNotPausedOverride {
     if (_poolFee == 0) revert InvalidPoolFee();
     uint24 oldFee = poolFee;
     poolFee = _poolFee;
@@ -464,7 +457,7 @@ contract SentinelV1 is ReentrancyGuard, Pausable, IERC721Receiver {
     );
 
     // handle protocol fee function
-    uint256 amountInAfterProtocolFee = _handleProtocolFee(amountIn);
+    uint256 amountInAfterProtocolFee = _handleProtocolFee(amountIn, tokenIn);
 
     // Decode bet data
     (
@@ -503,13 +496,13 @@ contract SentinelV1 is ReentrancyGuard, Pausable, IERC721Receiver {
     IERC20(tokenOut).forceApprove(address(lp), amountOut);
 
     // Place bets for the player
-    uint256 idBet = _bet(
+    (uint256 idBet, bool isMultipleBet) = _bet(
       uint128(amountOut),
       conditions,
       outcomes,
       conditions.length > 1 // isExpress = true if multiple bets
     );
-    emit BetPlaced(idBet);
+    emit BetPlaced(idBet, isMultipleBet);
   }
 
   /**
@@ -556,14 +549,13 @@ contract SentinelV1 is ReentrancyGuard, Pausable, IERC721Receiver {
       isMultipleBet,
       onlyWithdraw
     );
-    emit WithdrawBet(idBet);
+    emit WithdrawBet(idBet, isMultipleBet, onlyWithdraw);
   }
 
   // ======================== Emergency Functions ========================
 
   /**
-   * @notice Allows owner or operator to withdraw tokens to owner's wallet
-   * @dev Only callable by the owner or operator
+   * @notice Allows controller to withdraw tokens to owner's wallet
    * @param token Token address
    * @param amount Amount of tokens to withdraw
    */
@@ -649,7 +641,7 @@ contract SentinelV1 is ReentrancyGuard, Pausable, IERC721Receiver {
     uint256[] memory conditions,
     uint64[] memory outcomes,
     bool isMultiple
-  ) internal returns (uint256 idBet) {
+  ) internal returns (uint256 idBet, bool isMultipleBet) {
     uint64 minOdds = 1;
     uint64 expiresAt = uint64(block.timestamp + 1800); // 30 minutes
 
@@ -693,6 +685,7 @@ contract SentinelV1 is ReentrancyGuard, Pausable, IERC721Receiver {
 
       // Place the bet directly without try-catch
       idBet = lp.bet(expressAddress, amountOut, expiresAt, betData);
+      isMultipleBet = true;
     } else {
       // Single bet case remains unchanged
       IBet.BetData memory betData = IBet.BetData({
@@ -701,6 +694,7 @@ contract SentinelV1 is ReentrancyGuard, Pausable, IERC721Receiver {
         data: abi.encode(conditions[0], outcomes[0])
       });
       idBet = lp.bet(address(coreBase), amountOut, expiresAt, betData);
+      isMultipleBet = false;
     }
   }
 
@@ -729,12 +723,15 @@ contract SentinelV1 is ReentrancyGuard, Pausable, IERC721Receiver {
    * @param amount Amount to process
    * @return Amount after fee deduction
    */
-  function _handleProtocolFee(uint256 amount) internal returns (uint256) {
+  function _handleProtocolFee(
+    uint256 amount,
+    address token
+  ) internal returns (uint256) {
     uint256 protocolFee = _calculatePercentage(amount, protocolFeePercentage);
     if (protocolFee == 0) {
-      return 0;
+      return amount;
     }
-    IERC20(usdcAddress).safeTransfer(protocolFeeRecipient, protocolFee);
+    IERC20(token).safeTransfer(protocolFeeRecipient, protocolFee);
     uint256 amountAfterFee = amount - protocolFee;
     return amountAfterFee;
   }
@@ -815,7 +812,10 @@ contract SentinelV1 is ReentrancyGuard, Pausable, IERC721Receiver {
       );
 
       // Step 2: Handle protocol fee and prepare for Across
-      uint256 amountForAcross = _handleProtocolFee(amountOutAfterSwap);
+      uint256 amountForAcross = _handleProtocolFee(
+        amountOutAfterSwap,
+        usdcAddress
+      );
 
       IERC20(usdcAddress).forceApprove(acrossSpokePool, amountForAcross);
 
@@ -835,7 +835,7 @@ contract SentinelV1 is ReentrancyGuard, Pausable, IERC721Receiver {
     }
   }
 
-  // Add this function to verify signatures
+  // ======================== Signature Verification ========================
   function _verifyControllerSignatureBet(
     address tokenIn,
     address tokenOut,
@@ -844,55 +844,35 @@ contract SentinelV1 is ReentrancyGuard, Pausable, IERC721Receiver {
     bytes memory signature,
     bytes32 nonce
   ) internal {
-    if (signature.length != 96) revert InvalidSignatureLength();
+    // Expecting a standard 65-byte signature
+    if (signature.length != 65) revert InvalidSignatureLength();
 
-    // Split signature into r, s, v
-    bytes32 r;
-    bytes32 s;
-    uint8 v;
-    assembly {
-      r := mload(add(signature, 32))
-      s := mload(add(signature, 64))
-      v := byte(31, mload(add(signature, 96)))
-    }
+    // Compute the typed hash as before
+    bytes32 betHash = keccak256(bet);
+    bytes32 structHash = keccak256(
+        abi.encode(
+            BET_TYPEHASH,
+            tokenIn,
+            tokenOut,
+            amountIn,
+            betHash,
+            address(this),
+            nonce
+        )
+    );
+    bytes32 digest = keccak256(
+        abi.encodePacked("\x19\x01", DOMAIN_SEPARATOR, structHash)
+    );
+
+    // Recover the signer using ECDSA
+    address recoveredSigner = ECDSA.recover(digest, signature);
 
     // Check if nonce has been used
-    if (usedNonces[nonce]) revert NonceAlreadyUsed(nonce);
-    usedNonces[nonce] = true;
+    if (usedBetNonces[nonce]) revert NonceAlreadyUsed(nonce);
+    usedBetNonces[nonce] = true;
 
-    // Rest of signature validation
-    if (
-      uint256(s) >
-      0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF5D576E7357A4501DDFE92F46681B20A0
-    ) {
-      revert InvalidSignatureS();
-    }
-
-    if (v != 27 && v != 28) {
-      revert InvalidSignatureV();
-    }
-
-    bytes32 betHash = keccak256(bet);
-
-    bytes32 structHash = keccak256(
-      abi.encode(
-        BET_TYPEHASH,
-        tokenIn,
-        tokenOut,
-        amountIn,
-        betHash,
-        address(this),
-        nonce
-      )
-    );
-
-    bytes32 hash = keccak256(
-      abi.encodePacked("\x19\x01", DOMAIN_SEPARATOR, structHash)
-    );
-
-    address signer = ecrecover(hash, v, r, s);
-    if (signer == address(0)) revert InvalidSignature();
-    if (signer != controller) revert InvalidSigner();
+    if (recoveredSigner == address(0)) revert InvalidSignature();
+    if (recoveredSigner != controller) revert InvalidSigner();
   }
 
   function _verifyControllerSignatureWithdraw(
@@ -906,33 +886,14 @@ contract SentinelV1 is ReentrancyGuard, Pausable, IERC721Receiver {
     bytes memory signature,
     bytes32 nonce
   ) internal {
-    if (signature.length != 96) revert InvalidSignatureLength();
-
-    // Split signature into r, s, v
-    bytes32 r;
-    bytes32 s;
-    uint8 v;
-    assembly {
-      r := mload(add(signature, 32))
-      s := mload(add(signature, 64))
-      v := byte(31, mload(add(signature, 96)))
-    }
+    // Expecting a standard 65-byte signature
+    if (signature.length != 65) revert InvalidSignatureLength();
 
     // Check if nonce has been used
-    if (usedNonces[nonce]) revert NonceAlreadyUsed(nonce);
-    usedNonces[nonce] = true;
+    if (usedWithdrawNonces[nonce]) revert NonceAlreadyUsed(nonce);
+    usedWithdrawNonces[nonce] = true;
 
-    if (
-      uint256(s) >
-      0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF5D576E7357A4501DDFE92F46681B20A0
-    ) {
-      revert InvalidSignatureS();
-    }
-
-    if (v != 27 && v != 28) {
-      revert InvalidSignatureV();
-    }
-
+    // Build the struct hash using the type hash and parameters
     bytes32 structHash = keccak256(
       abi.encode(
         WITHDRAW_TYPEHASH,
@@ -948,13 +909,16 @@ contract SentinelV1 is ReentrancyGuard, Pausable, IERC721Receiver {
       )
     );
 
-    bytes32 hash = keccak256(
+    // Compute the digest per EIP-712: "\x19\x01" || DOMAIN_SEPARATOR || structHash
+    bytes32 digest = keccak256(
       abi.encodePacked("\x19\x01", DOMAIN_SEPARATOR, structHash)
     );
 
-    address signer = ecrecover(hash, v, r, s);
-    if (signer == address(0)) revert InvalidSignature();
-    if (signer != controller) revert InvalidSigner();
+    // Recover the signer using the ECDSA library
+    address recoveredSigner = ECDSA.recover(digest, signature);
+
+    if (recoveredSigner == address(0)) revert InvalidSignature();
+    if (recoveredSigner != controller) revert InvalidSigner();
   }
 
   /**
