@@ -796,7 +796,6 @@ contract SentinelV2 is ReentrancyGuard, Pausable, IERC721Receiver {
     uint32 exclusivityDeadline,
     address exclusivityRelayer
   ) internal {
-    /*
     V3SpokePoolInterface(acrossSpokePool).depositV3(
       address(this),
       controller,
@@ -811,7 +810,6 @@ contract SentinelV2 is ReentrancyGuard, Pausable, IERC721Receiver {
       exclusivityDeadline,
       ""
     );
-    */
   }
 
   /**
