@@ -168,7 +168,7 @@ describe("Sentinel", function () {
 
   async function deploySentinelFixture() {
     const [account1, account2] = await hre.ethers.getSigners();
-    const contractCode = (await hre.artifacts.readArtifact("SentinelV2"))
+    const contractCode = (await hre.artifacts.readArtifact("SentinelV1"))
       .bytecode;
 
     // Deploy factory
@@ -181,7 +181,7 @@ describe("Sentinel", function () {
     );
 
     // Prepare Sentinel initialization
-    const Sentinel = await hre.ethers.getContractFactory("SentinelV2");
+    const Sentinel = await hre.ethers.getContractFactory("SentinelV1");
     const sentinel = await Sentinel.connect(account2).deploy();
 
     const initContractCore = sentinel.interface.encodeFunctionData(
@@ -222,7 +222,7 @@ describe("Sentinel", function () {
     const deployedAddress = await factory.deployedControllers(account1.address);
     //const deployedAddress = "0xcb1eca680cB0ADa20b78a501f350fdfDB2b10BD8"
     const deployedSentinel = await hre.ethers.getContractAt(
-      "SentinelV2",
+      "SentinelV1",
       deployedAddress
     );
 

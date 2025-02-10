@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-//TODO: change factory address as const, only factory modifier
+//TODO: change factory address as const
 //TODO: deploy quoter contract on worldchain
 
 // ======================== Imports ========================
@@ -25,7 +25,7 @@ import "./azuro-protocol/ICoreBase.sol";
  * @notice This contract handles cross-chain sports betting operations using Azuro Protocol and Across Bridge
  * @dev Acts as a destination chain contract that receives bets and processes withdrawals
  */
-contract SentinelV2 is ReentrancyGuard, Pausable, IERC721Receiver {
+contract SentinelV1 is ReentrancyGuard, Pausable, IERC721Receiver {
   using SafeERC20 for IERC20;
 
   // ======================== Events ========================
@@ -210,7 +210,7 @@ contract SentinelV2 is ReentrancyGuard, Pausable, IERC721Receiver {
     address _usdcAddress,
     address _usdcAddressDestination,
     address _usdtAddress
-  ) external /*onlyFactory*/ {
+  ) external onlyFactory {
     _initializeCore(
       _owner,
       _operator,
@@ -237,7 +237,7 @@ contract SentinelV2 is ReentrancyGuard, Pausable, IERC721Receiver {
     address _quoter,
     uint24 _poolFee,
     uint256 _destinationChainId
-  ) external /*onlyFactory*/ {
+  ) external onlyFactory {
     _initializeProtocol(
       _acrossGenericHandler,
       _acrossSpokePool,
@@ -402,38 +402,10 @@ contract SentinelV2 is ReentrancyGuard, Pausable, IERC721Receiver {
   function setReferralFeePercentage(
     uint256 _referralFeePercentage
   ) external onlyController whenNotPausedOverride {
-    if (_referralFeePercentage > 1000) revert InvalidReferralFeePercentage();
+    if (_referralFeePercentage == 0) revert InvalidReferralFeePercentage();
     uint256 oldFee = referralFeePercentage;
     referralFeePercentage = _referralFeePercentage;
     emit ReferralFeePercentageChanged(oldFee, _referralFeePercentage);
-  }
-
-  /**
-   * @notice Updates the CoreBase address
-   * @dev Only callable by the operator
-   * @param _coreBase New CoreBase address
-   */
-  function setCoreBase(
-    address _coreBase
-  ) external onlyController whenNotPausedOverride {
-    if (_coreBase == address(0)) revert InvalidCoreBaseAddress();
-    address oldCoreBase = coreBase;
-    coreBase = _coreBase;
-    emit CoreBaseChanged(oldCoreBase, _coreBase);
-  }
-
-  /**
-   * @notice Updates the Quoter address
-   * @dev Only callable by the operator
-   * @param _quoter New Quoter address
-   */
-  function setQuoter(
-    address _quoter
-  ) external onlyController whenNotPausedOverride {
-    if (_quoter == address(0)) revert InvalidQuoterAddress();
-    address oldQuoter = quoter;
-    quoter = _quoter;
-    emit QuoterChanged(oldQuoter, _quoter);
   }
 
   /**
@@ -448,20 +420,6 @@ contract SentinelV2 is ReentrancyGuard, Pausable, IERC721Receiver {
     uint24 oldFee = poolFee;
     poolFee = _poolFee;
     emit PoolFeeChanged(oldFee, _poolFee);
-  }
-
-  /**
-   * @notice Updates the destination chain ID
-   * @dev Only callable by the operator
-   * @param _destinationChainId New destination chain ID
-   */
-  function setDestinationChainId(
-    uint256 _destinationChainId
-  ) external onlyController whenNotPausedOverride {
-    if (_destinationChainId == 0) revert InvalidDestinationChainId();
-    uint256 oldChainId = destinationChainId;
-    destinationChainId = _destinationChainId;
-    emit DestinationChainIdChanged(oldChainId, _destinationChainId);
   }
 
   // ======================== Core Functions ========================
