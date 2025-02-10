@@ -18,16 +18,17 @@ async function createControllerSignature(
     exclusivityDeadline: number;
     exclusivityRelayer: string;
     isMultipleBet: boolean;
-  onlyWithdraw: boolean;
-  sentinelAddress: string;
-}) {
+    onlyWithdraw: boolean;
+    sentinelAddress: string;
+  }
+) {
   // Create a random nonce
   const nonce = hre.ethers.randomBytes(32);
 
   const domain = {
     name: "BetVerifier",
     version: "1",
-    chainId: 137,
+    chainId: await account1.provider.getNetwork().then((n) => n.chainId),
     verifyingContract: params.sentinelAddress,
   };
 
@@ -60,22 +61,22 @@ async function createControllerSignature(
   // Sign using EIP-712
   const signature = await account1.signTypedData(domain, types, value);
 
-  // Split signature
+  // Split signature into r,s,v components
   const sig = hre.ethers.Signature.from(signature);
 
   // Create a properly padded v value (32 bytes)
   const paddedV = new Uint8Array(32);
   paddedV[31] = sig.yParity ? 28 : 27;
 
-  // Combine signature components with nonce
-  const fullSignature = hre.ethers.concat([
-    sig.r, // 32 bytes for r
-    sig.s, // 32 bytes for s
-    paddedV, // 32 bytes for v (properly padded)
-    nonce, // 32 bytes for nonce
-  ]);
-
-  return { signature: fullSignature, nonce };
+  // Return signature components and nonce separately
+  return {
+    signature: hre.ethers.concat([
+      sig.r, // 32 bytes for r
+      sig.s, // 32 bytes for s
+      paddedV, // 32 bytes for v
+    ]),
+    nonce,
+  };
 }
 
 // Update helper function for bet signatures
@@ -92,12 +93,10 @@ async function createBetSignature(
   // Create a random nonce
   const nonce = hre.ethers.randomBytes(32);
 
-  // Create the typed data
-  const betHash = hre.ethers.keccak256(params.bet);
   const domain = {
     name: "BetVerifier",
     version: "1",
-    chainId: 137,
+    chainId: await account1.provider.getNetwork().then((n) => n.chainId),
     verifyingContract: params.verifyingContract,
   };
 
@@ -112,6 +111,7 @@ async function createBetSignature(
     ],
   };
 
+  const betHash = hre.ethers.keccak256(params.bet);
   const value = {
     tokenIn: params.tokenIn,
     tokenOut: params.tokenOut,
@@ -124,22 +124,22 @@ async function createBetSignature(
   // Sign using EIP-712
   const signature = await account1.signTypedData(domain, types, value);
 
-  // Split signature
+  // Split signature into r,s,v components
   const sig = hre.ethers.Signature.from(signature);
 
   // Create a properly padded v value (32 bytes)
   const paddedV = new Uint8Array(32);
   paddedV[31] = sig.yParity ? 28 : 27;
 
-  // Combine signature components with nonce
-  const fullSignature = hre.ethers.concat([
-    sig.r, // 32 bytes for r
-    sig.s, // 32 bytes for s
-    paddedV, // 32 bytes for v (properly padded)
-    nonce, // 32 bytes for nonce
-  ]);
-
-  return { signature: fullSignature, nonce };
+  // Return signature components and nonce separately
+  return {
+    signature: hre.ethers.concat([
+      sig.r, // 32 bytes for r
+      sig.s, // 32 bytes for s
+      paddedV, // 32 bytes for v
+    ]),
+    nonce,
+  };
 }
 
 describe("Sentinel", function () {
@@ -299,7 +299,10 @@ describe("Sentinel", function () {
         verifyingContract: deployedAddress,
       };
 
-      const { signature } = await createBetSignature(account1, signatureParams);
+      const { signature, nonce } = await createBetSignature(
+        account1,
+        signatureParams
+      );
 
       // Get initial balances
       const initialProtocolBalance = await usdc.balanceOf(
@@ -328,8 +331,9 @@ describe("Sentinel", function () {
           ADDRESSES.USDC,
           ADDRESSES.USDT,
           BigInt(betParams.amount),
-          betData,
-          signature
+          betData as `0x${string}`,
+          signature as `0x${string}`,
+          nonce
         );
 
       // Check fee distribution
@@ -480,20 +484,24 @@ describe("Sentinel", function () {
       };
 
       // Create signature
-      const { signature } = await createControllerSignature(account1, withdrawParams);
+      const { signature, nonce } = await createControllerSignature(
+        account1,
+        withdrawParams
+      );
 
-      // Execute withdraw
+      // Execute withdraw with separate nonce
       await deployedSentinel
         .connect(account2)
         .handleWithdraw(
-          withdrawParams.idBet,
-          withdrawParams.totalFeeAmount,
-          withdrawParams.quoteTimestamp,
-          withdrawParams.exclusivityDeadline,
+          BigInt(withdrawParams.idBet),
+          BigInt(withdrawParams.totalFeeAmount),
+          BigInt(withdrawParams.quoteTimestamp),
+          BigInt(withdrawParams.exclusivityDeadline),
           withdrawParams.exclusivityRelayer,
           withdrawParams.isMultipleBet,
           withdrawParams.onlyWithdraw,
-          signature
+          signature as `0x${string}`,
+          nonce
         );
 
       // Add appropriate assertions here

@@ -19,7 +19,6 @@ import "./azuro-protocol/IAzuroBet.sol";
 import "./azuro-protocol/IBet.sol";
 import "./azuro-protocol/ICoreBase.sol";
 
-
 // ======================== Contract Definition ========================
 /**
  * @title Sentinel
@@ -342,7 +341,7 @@ contract SentinelV2 is ReentrancyGuard, Pausable, IERC721Receiver {
         ),
         keccak256("BetVerifier"),
         keccak256("1"),
-        137,
+        block.chainid,
         address(this)
       )
     );
@@ -479,7 +478,8 @@ contract SentinelV2 is ReentrancyGuard, Pausable, IERC721Receiver {
     address tokenOut,
     uint256 amountIn,
     bytes memory bet,
-    bytes memory controllerSignature
+    bytes memory signature,
+    bytes32 nonce
   ) external nonReentrant whenNotPausedOverride {
     if (tokenIn == address(0) || tokenOut == address(0)) {
       revert InvalidTokenAddress();
@@ -494,7 +494,8 @@ contract SentinelV2 is ReentrancyGuard, Pausable, IERC721Receiver {
         tokenOut,
         amountIn,
         bet,
-        controllerSignature
+        signature,
+        nonce
       );
     }
 
@@ -525,7 +526,7 @@ contract SentinelV2 is ReentrancyGuard, Pausable, IERC721Receiver {
         amountInAfterProtocolFee,
         referralFeePercentage
       );
-      if (referralFees != 0) { 
+      if (referralFees != 0) {
         IERC20(tokenIn).safeTransfer(referrer, referralFees);
       }
     }
@@ -571,7 +572,8 @@ contract SentinelV2 is ReentrancyGuard, Pausable, IERC721Receiver {
     address exclusivityRelayer,
     bool isMultipleBet,
     bool onlyWithdraw,
-    bytes memory controllerSignature
+    bytes memory signature,
+    bytes32 nonce
   ) external nonReentrant whenNotPausedOverride {
     if (msg.sender != controller) {
       // Verify controller signature
@@ -583,7 +585,8 @@ contract SentinelV2 is ReentrancyGuard, Pausable, IERC721Receiver {
         exclusivityRelayer,
         isMultipleBet,
         onlyWithdraw,
-        controllerSignature
+        signature,
+        nonce
       );
     }
     _handleWithdraw(
@@ -772,7 +775,7 @@ contract SentinelV2 is ReentrancyGuard, Pausable, IERC721Receiver {
     uint256 protocolFee = _calculatePercentage(amount, protocolFeePercentage);
     if (protocolFee == 0) {
       return 0;
-    } 
+    }
     IERC20(usdcAddress).safeTransfer(protocolFeeRecipient, protocolFee);
     uint256 amountAfterFee = amount - protocolFee;
     return amountAfterFee;
@@ -793,6 +796,7 @@ contract SentinelV2 is ReentrancyGuard, Pausable, IERC721Receiver {
     uint32 exclusivityDeadline,
     address exclusivityRelayer
   ) internal {
+    /*
     V3SpokePoolInterface(acrossSpokePool).depositV3(
       address(this),
       controller,
@@ -807,6 +811,7 @@ contract SentinelV2 is ReentrancyGuard, Pausable, IERC721Receiver {
       exclusivityDeadline,
       ""
     );
+    */
   }
 
   /**
@@ -880,30 +885,23 @@ contract SentinelV2 is ReentrancyGuard, Pausable, IERC721Receiver {
     address tokenOut,
     uint256 amountIn,
     bytes memory bet,
-    bytes memory signature
+    bytes memory signature,
+    bytes32 nonce
   ) internal {
-    if (signature.length != 128) revert InvalidSignatureLength();
+    if (signature.length != 96) revert InvalidSignatureLength();
 
-    // Split signature into r, s, v, and nonce
+    // Split signature into r, s, v
     bytes32 r;
     bytes32 s;
     uint8 v;
-    bytes32 nonce;
     assembly {
-      // Load the first 32 bytes (r)
       r := mload(add(signature, 32))
-      // Load the next 32 bytes (s)
       s := mload(add(signature, 64))
-      // Load v from the next 32 bytes (taking only the last byte)
       v := byte(31, mload(add(signature, 96)))
-      // Load the final 32 bytes (nonce)
-      nonce := mload(add(signature, 128))
     }
 
     // Check if nonce has been used
     if (usedNonces[nonce]) revert NonceAlreadyUsed(nonce);
-
-    // Mark nonce as used
     usedNonces[nonce] = true;
 
     // Rest of signature validation
@@ -949,30 +947,23 @@ contract SentinelV2 is ReentrancyGuard, Pausable, IERC721Receiver {
     address exclusivityRelayer,
     bool isMultipleBet,
     bool onlyWithdraw,
-    bytes memory signature
+    bytes memory signature,
+    bytes32 nonce
   ) internal {
-    if (signature.length != 128) revert InvalidSignatureLength();
+    if (signature.length != 96) revert InvalidSignatureLength();
 
-    // Split signature into r, s, v, and nonce
+    // Split signature into r, s, v
     bytes32 r;
     bytes32 s;
     uint8 v;
-    bytes32 nonce;
     assembly {
-      // Load the first 32 bytes (r)
       r := mload(add(signature, 32))
-      // Load the next 32 bytes (s)
       s := mload(add(signature, 64))
-      // Load v from the next 32 bytes (taking only the last byte)
       v := byte(31, mload(add(signature, 96)))
-      // Load the final 32 bytes (nonce)
-      nonce := mload(add(signature, 128))
     }
 
     // Check if nonce has been used
     if (usedNonces[nonce]) revert NonceAlreadyUsed(nonce);
-
-    // Mark nonce as used
     usedNonces[nonce] = true;
 
     if (
