@@ -107,7 +107,8 @@ contract SentinelV1 is ReentrancyGuard, Pausable, IERC721Receiver {
 
   // Protocol Configuration
   address public protocolFeeRecipient; // Address receiving protocol fees
-  uint256 public protocolFeePercentage; // Fee percentage in basis points
+  uint256 public protocolFeeBetPercentage; // Fee percentage in basis points
+  uint256 public protocolFeeWithdrawPercentage; // Fee percentage in basis points
   uint256 public referralFeePercentage; // Referral fee percentage in basis points
   uint256 public destinationChainId; // Target chain ID for cross-chain operations
 
@@ -223,7 +224,8 @@ contract SentinelV1 is ReentrancyGuard, Pausable, IERC721Receiver {
     address _acrossGenericHandler,
     address _acrossSpokePool,
     address _protocolFeeRecipient,
-    uint256 _protocolFeePercentage,
+    uint256 _protocolFeeBetPercentage,
+    uint256 _protocolFeeWithdrawPercentage,
     uint256 _referralFeePercentage,
     address _coreBase,
     address _expressAddress,
@@ -235,7 +237,8 @@ contract SentinelV1 is ReentrancyGuard, Pausable, IERC721Receiver {
       _acrossGenericHandler,
       _acrossSpokePool,
       _protocolFeeRecipient,
-      _protocolFeePercentage,
+      _protocolFeeBetPercentage,
+      _protocolFeeWithdrawPercentage,
       _referralFeePercentage,
       _coreBase,
       _expressAddress,
@@ -290,7 +293,8 @@ contract SentinelV1 is ReentrancyGuard, Pausable, IERC721Receiver {
     address _acrossGenericHandler,
     address _acrossSpokePool,
     address _protocolFeeRecipient,
-    uint256 _protocolFeePercentage,
+    uint256 _protocolFeeBetPercentage,
+    uint256 _protocolFeeWithdrawPercentage,
     uint256 _referralFeePercentage,
     address _coreBase,
     address _expressAddress,
@@ -301,8 +305,8 @@ contract SentinelV1 is ReentrancyGuard, Pausable, IERC721Receiver {
     if (protocolInitialized) {
       revert AlreadyProtocolInitialized();
     }
-    if (_protocolFeePercentage == 0) revert InvalidProtocolFeePercentage();
-
+    if (_protocolFeeBetPercentage == 0) revert InvalidProtocolFeePercentage();
+    if (_protocolFeeWithdrawPercentage == 0) revert InvalidProtocolFeePercentage();
     if (_acrossGenericHandler == address(0))
       revert InvalidAcrossHandlerAddress();
     if (_acrossSpokePool == address(0)) revert InvalidAcrossSpokePoolAddress();
@@ -318,7 +322,8 @@ contract SentinelV1 is ReentrancyGuard, Pausable, IERC721Receiver {
     acrossGenericHandler = _acrossGenericHandler;
     acrossSpokePool = _acrossSpokePool;
     protocolFeeRecipient = _protocolFeeRecipient;
-    protocolFeePercentage = _protocolFeePercentage;
+    protocolFeeBetPercentage = _protocolFeeBetPercentage;
+    protocolFeeWithdrawPercentage = _protocolFeeWithdrawPercentage;
     referralFeePercentage = _referralFeePercentage;
     coreBase = _coreBase;
     expressAddress = _expressAddress;
@@ -377,14 +382,22 @@ contract SentinelV1 is ReentrancyGuard, Pausable, IERC721Receiver {
    * @notice Sets the protocol fee percentage
    * @dev Only callable by the operator
    * @param _protocolFeePercentage New fee percentage in basis points (max 1000 = 10%)
+   * @param forBet If true, set protocol fee percentage for bet, otherwise set for withdraw
    */
   function setProtocolFeePercentage(
-    uint256 _protocolFeePercentage
+    uint256 _protocolFeePercentage,
+    bool forBet
   ) external onlyOperator whenNotPausedOverride {
     if (_protocolFeePercentage == 0) revert InvalidProtocolFeePercentage();
-    uint256 oldFee = protocolFeePercentage;
-    protocolFeePercentage = _protocolFeePercentage;
-    emit ProtocolFeePercentageChanged(oldFee, _protocolFeePercentage);
+    if (forBet) {
+      uint256 oldFee = protocolFeeBetPercentage;
+      protocolFeeBetPercentage = _protocolFeePercentage;
+      emit ProtocolFeePercentageChanged(oldFee, _protocolFeePercentage);
+    } else {
+      uint256 oldFee = protocolFeeWithdrawPercentage;
+      protocolFeeWithdrawPercentage = _protocolFeePercentage;
+      emit ProtocolFeePercentageChanged(oldFee, _protocolFeePercentage);
+    }
   }
 
   /**
@@ -457,7 +470,7 @@ contract SentinelV1 is ReentrancyGuard, Pausable, IERC721Receiver {
     );
 
     // handle protocol fee function
-    uint256 amountInAfterProtocolFee = _handleProtocolFee(amountIn, tokenIn);
+    uint256 amountInAfterProtocolFee = _handleProtocolFee(amountIn, tokenIn, true);
 
     // Decode bet data
     (
@@ -725,9 +738,10 @@ contract SentinelV1 is ReentrancyGuard, Pausable, IERC721Receiver {
    */
   function _handleProtocolFee(
     uint256 amount,
-    address token
+    address token,
+    bool isBet
   ) internal returns (uint256) {
-    uint256 protocolFee = _calculatePercentage(amount, protocolFeePercentage);
+    uint256 protocolFee = _calculatePercentage(amount, isBet ? protocolFeeBetPercentage : protocolFeeWithdrawPercentage);
     if (protocolFee == 0) {
       return amount;
     }
@@ -814,7 +828,8 @@ contract SentinelV1 is ReentrancyGuard, Pausable, IERC721Receiver {
       // Step 2: Handle protocol fee and prepare for Across
       uint256 amountForAcross = _handleProtocolFee(
         amountOutAfterSwap,
-        usdcAddress
+        usdcAddress,
+        false
       );
 
       IERC20(usdcAddress).forceApprove(acrossSpokePool, amountForAcross);
