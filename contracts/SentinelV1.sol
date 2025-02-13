@@ -57,7 +57,6 @@ contract SentinelV1 is ReentrancyGuard, Pausable, IERC721Receiver {
   // ======================== Custom Errors ========================
   error AlreadyInitialized(address controller);
   error AlreadyProtocolInitialized();
-  error NotAcrossHandler(address acrossGenericHandler);
   error NotOperator(address operator);
   error NotController(address controller);
   error NotSentinel();
@@ -98,7 +97,7 @@ contract SentinelV1 is ReentrancyGuard, Pausable, IERC721Receiver {
   // ======================== Constants ========================
   uint256 private constant BASIS_POINTS = 10000; // 100% (100 * 100 = 10000)
   uint256 private constant USDC_DECIMALS = 6; // 1 USDC = 10^6 USDC
-  address private constant FACTORY = 0x0000000000000000000000000000000000000000; //TODO
+  address private constant FACTORY = 0x31658aA87A6Ea7B48d15e161f97B5D6573d67B19; 
 
   // ======================== State Variables ========================
   // Access Control
@@ -113,7 +112,6 @@ contract SentinelV1 is ReentrancyGuard, Pausable, IERC721Receiver {
   uint256 public destinationChainId; // Target chain ID for cross-chain operations
 
   // Protocol Addresses
-  address public acrossGenericHandler; // Across bridge handler address
   address public acrossSpokePool; // Across spoke pool address
   address public coreBase; // Azuro core contract address
   address public azuroBet; // Azuro bet interface
@@ -221,7 +219,6 @@ contract SentinelV1 is ReentrancyGuard, Pausable, IERC721Receiver {
    * @notice Second phase initialization with protocol parameters
    */
   function initializeProtocol(
-    address _acrossGenericHandler,
     address _acrossSpokePool,
     address _protocolFeeRecipient,
     uint256 _protocolFeeBetPercentage,
@@ -234,7 +231,6 @@ contract SentinelV1 is ReentrancyGuard, Pausable, IERC721Receiver {
     uint256 _destinationChainId
   ) external onlyFactory {
     _initializeProtocol(
-      _acrossGenericHandler,
       _acrossSpokePool,
       _protocolFeeRecipient,
       _protocolFeeBetPercentage,
@@ -290,7 +286,6 @@ contract SentinelV1 is ReentrancyGuard, Pausable, IERC721Receiver {
    * @dev Internal function to initialize protocol parameters
    */
   function _initializeProtocol(
-    address _acrossGenericHandler,
     address _acrossSpokePool,
     address _protocolFeeRecipient,
     uint256 _protocolFeeBetPercentage,
@@ -307,8 +302,6 @@ contract SentinelV1 is ReentrancyGuard, Pausable, IERC721Receiver {
     }
     if (_protocolFeeBetPercentage == 0) revert InvalidProtocolFeePercentage();
     if (_protocolFeeWithdrawPercentage == 0) revert InvalidProtocolFeePercentage();
-    if (_acrossGenericHandler == address(0))
-      revert InvalidAcrossHandlerAddress();
     if (_acrossSpokePool == address(0)) revert InvalidAcrossSpokePoolAddress();
     if (_protocolFeeRecipient == address(0))
       revert InvalidProtocolFeeRecipientAddress();
@@ -319,7 +312,6 @@ contract SentinelV1 is ReentrancyGuard, Pausable, IERC721Receiver {
     if (_poolFee == 0) revert InvalidPoolFee();
     if (_destinationChainId == 0) revert InvalidDestinationChainId();
 
-    acrossGenericHandler = _acrossGenericHandler;
     acrossSpokePool = _acrossSpokePool;
     protocolFeeRecipient = _protocolFeeRecipient;
     protocolFeeBetPercentage = _protocolFeeBetPercentage;
@@ -448,7 +440,7 @@ contract SentinelV1 is ReentrancyGuard, Pausable, IERC721Receiver {
     if (tokenIn == address(0) || tokenOut == address(0)) {
       revert InvalidTokenAddress();
     }
-    if (amountIn == 0) {
+    if (amountIn == 0 || IERC20(tokenIn).balanceOf(address(this)) < amountIn) {
       revert InvalidAmount();
     }
     if (msg.sender != controller) {
@@ -462,12 +454,6 @@ contract SentinelV1 is ReentrancyGuard, Pausable, IERC721Receiver {
         nonce
       );
     }
-
-    IERC20(tokenIn).safeTransferFrom(
-      acrossGenericHandler,
-      address(this),
-      amountIn
-    );
 
     // handle protocol fee function
     uint256 amountInAfterProtocolFee = _handleProtocolFee(amountIn, tokenIn, true);
@@ -484,7 +470,6 @@ contract SentinelV1 is ReentrancyGuard, Pausable, IERC721Receiver {
     require(conditions.length > 0, "Empty bet arrays");
 
     uint256 referralFees = 0;
-
     if (referrer != address(0)) {
       referralFees = _calculatePercentage(
         amountInAfterProtocolFee,
