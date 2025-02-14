@@ -22,7 +22,8 @@ contract AzuroHandler is Pausable {
   event BetPlaced(
     uint256 indexed idBet,
     address indexed bettorAddress,
-    address indexed poolAddress
+    address indexed referrerAddress,
+    address poolAddress
   );
 
   // ======================== Custom Errors ========================
@@ -175,6 +176,7 @@ contract AzuroHandler is Pausable {
     // Place bets for the player
     _bet(
       bettorAddress,
+      referrerAddress,
       uint128(amountInAfterReferrerFee),
       conditions,
       outcomes,
@@ -196,6 +198,7 @@ contract AzuroHandler is Pausable {
    */
   function _bet(
     address bettorAddress,
+    address referrerAddress,
     uint128 amountOut,
     uint256[] memory conditions,
     uint64[] memory outcomes,
@@ -245,7 +248,7 @@ contract AzuroHandler is Pausable {
         betData
       );
       isMultipleBet = true;
-      emit BetPlaced(idBet, bettorAddress, AZURO_EXPRESS);
+      emit BetPlaced(idBet, bettorAddress, referrerAddress, AZURO_EXPRESS);
     } else {
       // Single bet case remains unchanged
       IBet.BetData memory betData = IBet.BetData({
@@ -261,7 +264,7 @@ contract AzuroHandler is Pausable {
         betData
       );
       isMultipleBet = false;
-      emit BetPlaced(idBet, bettorAddress, AZURO_CORE);
+      emit BetPlaced(idBet, bettorAddress, referrerAddress, AZURO_CORE);
     }
   }
 
