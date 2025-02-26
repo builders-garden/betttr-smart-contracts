@@ -8,7 +8,6 @@ import "@openzeppelin/contracts/utils/Pausable.sol";
 import "./azuro-protocol/ILP.sol";
 import "./azuro-protocol/IBet.sol";
 import "./azuro-protocol/ICoreBase.sol";
-import "hardhat/console.sol";
 
 // ======================== Contract Definition ========================
 /**
@@ -36,11 +35,13 @@ contract AzuroHandler is Pausable {
   error InvalidReferrerFeePercentage();
   error DuplicateConditionIds();
   error InvalidReferralFeePercentage();
+  error InvalidProtocolFeePercentage();
 
   // ======================== Constants ========================
   uint256 private constant BASIS_POINTS = 10000; // 100% (100 * 100 = 10000)
   uint64  private constant MIN_ODDS = 1;
   uint256 private constant MIN_REFERRER_FEE_PERCENTAGE = 1; // 0.1%
+  uint256 private constant MAX_PROTOCOL_FEE_PERCENTAGE = 100; // 10%
   address private constant WETH = 0x4200000000000000000000000000000000000006; 
   address private constant AZURO_CORE = 0xf5A6B7940cbdb80F294f1eAc59575562966aa3FC; 
   address private constant AZURO_EXPRESS = 0x4731Bb0D12c4f992Cf02BDc7A48e8656d0E382Ed; 
@@ -48,7 +49,6 @@ contract AzuroHandler is Pausable {
 
   // ======================== State Variables ========================
   address public operator; // Operator address for privileged operations
-  uint256 public protocolFeePercentage; // Fee percentage in basis points
   address public protocolFeeRecipient; // Address receiving protocol fees
 
   // ======================== Modifiers ========================
@@ -71,14 +71,12 @@ contract AzuroHandler is Pausable {
   //======================= Constructor ========================
   constructor(
     address _operator,
-    address _protocolFeeRecipient,
-    uint256 _protocolFeePercentage
+    address _protocolFeeRecipient
   ) {
     if (_operator == address(0)) revert InvalidOperatorAddress();
     if (_protocolFeeRecipient == address(0)) revert InvalidProtocolFeeRecipientAddress();
     operator = _operator;
     protocolFeeRecipient = _protocolFeeRecipient;
-    protocolFeePercentage = _protocolFeePercentage;
   }
 
   // ======================== Pausable Functions ========================
@@ -142,6 +140,7 @@ contract AzuroHandler is Pausable {
     uint256 amountIn,
     address referrerAddress,
     uint256 referrerFeePercentage,
+    uint256 protocolFeePercentage,
     uint64 minOdds,
     uint256[] memory conditions,
     uint64[] memory outcomes
@@ -150,16 +149,17 @@ contract AzuroHandler is Pausable {
     if (amountIn == 0) revert InvalidAmount();
     // Validate array lengths match
     if (conditions.length != outcomes.length || conditions.length == 0) revert InvalidBetData();
-    // Validate referrer fee percentage
-    if (referrerFeePercentage < MIN_REFERRER_FEE_PERCENTAGE) revert InvalidReferrerFeePercentage();
-    console.log("transferFrom");
+    // Validate protocol fee percentage
+    if (protocolFeePercentage > MAX_PROTOCOL_FEE_PERCENTAGE) revert InvalidProtocolFeePercentage();
+    // Validate referrer fee percentage only if referrer address is provided
+    if (referrerAddress != address(0) && referrerFeePercentage < MIN_REFERRER_FEE_PERCENTAGE) 
+      revert InvalidReferrerFeePercentage();
 
     //Transfer the tokens to the contract
     IERC20(WETH).safeTransferFrom(bettorAddress, address(this), amountIn);
-    console.log("transferFrom");
 
     // handle protocol fee function
-    uint256 amountInAfterProtocolFee = _handleProtocolFee(amountIn);
+    uint256 amountInAfterProtocolFee = _handleProtocolFee(amountIn, protocolFeePercentage);
     uint256 amountInAfterReferrerFee = amountInAfterProtocolFee;
 
     if (referrerAddress != address(0)) {
@@ -274,7 +274,8 @@ contract AzuroHandler is Pausable {
    * @return Amount after fee deduction
    */
   function _handleProtocolFee(
-    uint256 amount
+    uint256 amount,
+    uint256 protocolFeePercentage
   ) internal returns (uint256) {
     uint256 protocolFee = _calculatePercentage(amount, protocolFeePercentage);
     if (protocolFee == 0) {
