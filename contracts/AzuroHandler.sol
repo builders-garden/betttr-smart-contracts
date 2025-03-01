@@ -156,7 +156,7 @@ contract AzuroHandler is Pausable {
       revert InvalidReferrerFeePercentage();
 
     //Transfer the tokens to the contract
-    IERC20(WETH).safeTransferFrom(bettorAddress, address(this), amountIn);
+    IERC20(WETH).safeTransferFrom(msg.sender, address(this), amountIn);
 
     // handle protocol fee function
     uint256 amountInAfterProtocolFee = _handleProtocolFee(amountIn, protocolFeePercentage);
