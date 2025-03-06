@@ -1,8 +1,6 @@
 // Sources flattened with hardhat v2.22.18 https://hardhat.org
 
-// SPDX-License-Identifier: BUSL-1.1 AND GPL-2.0-or-later AND GPL-3.0 AND MIT
-
-pragma abicoder v2;
+// SPDX-License-Identifier: GPL-3.0 AND MIT
 
 // File @openzeppelin/contracts-upgradeable/utils/introspection/IERC165Upgradeable.sol@v4.9.6
 
@@ -611,143 +609,6 @@ library SafeERC20 {
         }
         return success && (returnSize == 0 ? address(token).code.length > 0 : returnValue == 1);
     }
-}
-
-
-// File @openzeppelin/contracts/token/ERC721/IERC721.sol@v5.2.0
-
-// Original license: SPDX_License_Identifier: MIT
-// OpenZeppelin Contracts (last updated v5.1.0) (token/ERC721/IERC721.sol)
-
-pragma solidity ^0.8.20;
-
-/**
- * @dev Required interface of an ERC-721 compliant contract.
- */
-interface IERC721 is IERC165 {
-    /**
-     * @dev Emitted when `tokenId` token is transferred from `from` to `to`.
-     */
-    event Transfer(address indexed from, address indexed to, uint256 indexed tokenId);
-
-    /**
-     * @dev Emitted when `owner` enables `approved` to manage the `tokenId` token.
-     */
-    event Approval(address indexed owner, address indexed approved, uint256 indexed tokenId);
-
-    /**
-     * @dev Emitted when `owner` enables or disables (`approved`) `operator` to manage all of its assets.
-     */
-    event ApprovalForAll(address indexed owner, address indexed operator, bool approved);
-
-    /**
-     * @dev Returns the number of tokens in ``owner``'s account.
-     */
-    function balanceOf(address owner) external view returns (uint256 balance);
-
-    /**
-     * @dev Returns the owner of the `tokenId` token.
-     *
-     * Requirements:
-     *
-     * - `tokenId` must exist.
-     */
-    function ownerOf(uint256 tokenId) external view returns (address owner);
-
-    /**
-     * @dev Safely transfers `tokenId` token from `from` to `to`.
-     *
-     * Requirements:
-     *
-     * - `from` cannot be the zero address.
-     * - `to` cannot be the zero address.
-     * - `tokenId` token must exist and be owned by `from`.
-     * - If the caller is not `from`, it must be approved to move this token by either {approve} or {setApprovalForAll}.
-     * - If `to` refers to a smart contract, it must implement {IERC721Receiver-onERC721Received}, which is called upon
-     *   a safe transfer.
-     *
-     * Emits a {Transfer} event.
-     */
-    function safeTransferFrom(address from, address to, uint256 tokenId, bytes calldata data) external;
-
-    /**
-     * @dev Safely transfers `tokenId` token from `from` to `to`, checking first that contract recipients
-     * are aware of the ERC-721 protocol to prevent tokens from being forever locked.
-     *
-     * Requirements:
-     *
-     * - `from` cannot be the zero address.
-     * - `to` cannot be the zero address.
-     * - `tokenId` token must exist and be owned by `from`.
-     * - If the caller is not `from`, it must have been allowed to move this token by either {approve} or
-     *   {setApprovalForAll}.
-     * - If `to` refers to a smart contract, it must implement {IERC721Receiver-onERC721Received}, which is called upon
-     *   a safe transfer.
-     *
-     * Emits a {Transfer} event.
-     */
-    function safeTransferFrom(address from, address to, uint256 tokenId) external;
-
-    /**
-     * @dev Transfers `tokenId` token from `from` to `to`.
-     *
-     * WARNING: Note that the caller is responsible to confirm that the recipient is capable of receiving ERC-721
-     * or else they may be permanently lost. Usage of {safeTransferFrom} prevents loss, though the caller must
-     * understand this adds an external call which potentially creates a reentrancy vulnerability.
-     *
-     * Requirements:
-     *
-     * - `from` cannot be the zero address.
-     * - `to` cannot be the zero address.
-     * - `tokenId` token must be owned by `from`.
-     * - If the caller is not `from`, it must be approved to move this token by either {approve} or {setApprovalForAll}.
-     *
-     * Emits a {Transfer} event.
-     */
-    function transferFrom(address from, address to, uint256 tokenId) external;
-
-    /**
-     * @dev Gives permission to `to` to transfer `tokenId` token to another account.
-     * The approval is cleared when the token is transferred.
-     *
-     * Only a single account can be approved at a time, so approving the zero address clears previous approvals.
-     *
-     * Requirements:
-     *
-     * - The caller must own the token or be an approved operator.
-     * - `tokenId` must exist.
-     *
-     * Emits an {Approval} event.
-     */
-    function approve(address to, uint256 tokenId) external;
-
-    /**
-     * @dev Approve or remove `operator` as an operator for the caller.
-     * Operators can call {transferFrom} or {safeTransferFrom} for any token owned by the caller.
-     *
-     * Requirements:
-     *
-     * - The `operator` cannot be the address zero.
-     *
-     * Emits an {ApprovalForAll} event.
-     */
-    function setApprovalForAll(address operator, bool approved) external;
-
-    /**
-     * @dev Returns the account approved for `tokenId` token.
-     *
-     * Requirements:
-     *
-     * - `tokenId` must exist.
-     */
-    function getApproved(uint256 tokenId) external view returns (address operator);
-
-    /**
-     * @dev Returns if the `operator` is allowed to manage all of the assets of `owner`.
-     *
-     * See {setApprovalForAll}
-     */
-    function isApprovedForAll(address owner, address operator) external view returns (bool);
 }
 
 
@@ -1416,462 +1277,10 @@ interface ICoreBase is ICondition, IOwnable, IBet {
 }
 
 
-// File @openzeppelin/contracts/token/ERC721/IERC721Receiver.sol@v5.2.0
-
-// Original license: SPDX_License_Identifier: MIT
-// OpenZeppelin Contracts (last updated v5.1.0) (token/ERC721/IERC721Receiver.sol)
-
-pragma solidity ^0.8.20;
-
-/**
- * @title ERC-721 token receiver interface
- * @dev Interface for any contract that wants to support safeTransfers
- * from ERC-721 asset contracts.
- */
-interface IERC721Receiver {
-    /**
-     * @dev Whenever an {IERC721} `tokenId` token is transferred to this contract via {IERC721-safeTransferFrom}
-     * by `operator` from `from`, this function is called.
-     *
-     * It must return its Solidity selector to confirm the token transfer.
-     * If any other value is returned or the interface is not implemented by the recipient, the transfer will be
-     * reverted.
-     *
-     * The selector can be obtained in Solidity with `IERC721Receiver.onERC721Received.selector`.
-     */
-    function onERC721Received(
-        address operator,
-        address from,
-        uint256 tokenId,
-        bytes calldata data
-    ) external returns (bytes4);
-}
-
-
-// File @openzeppelin/contracts/utils/ReentrancyGuard.sol@v5.2.0
-
-// Original license: SPDX_License_Identifier: MIT
-// OpenZeppelin Contracts (last updated v5.1.0) (utils/ReentrancyGuard.sol)
-
-pragma solidity ^0.8.20;
-
-/**
- * @dev Contract module that helps prevent reentrant calls to a function.
- *
- * Inheriting from `ReentrancyGuard` will make the {nonReentrant} modifier
- * available, which can be applied to functions to make sure there are no nested
- * (reentrant) calls to them.
- *
- * Note that because there is a single `nonReentrant` guard, functions marked as
- * `nonReentrant` may not call one another. This can be worked around by making
- * those functions `private`, and then adding `external` `nonReentrant` entry
- * points to them.
- *
- * TIP: If EIP-1153 (transient storage) is available on the chain you're deploying at,
- * consider using {ReentrancyGuardTransient} instead.
- *
- * TIP: If you would like to learn more about reentrancy and alternative ways
- * to protect against it, check out our blog post
- * https://blog.openzeppelin.com/reentrancy-after-istanbul/[Reentrancy After Istanbul].
- */
-abstract contract ReentrancyGuard {
-    // Booleans are more expensive than uint256 or any type that takes up a full
-    // word because each write operation emits an extra SLOAD to first read the
-    // slot's contents, replace the bits taken up by the boolean, and then write
-    // back. This is the compiler's defense against contract upgrades and
-    // pointer aliasing, and it cannot be disabled.
-
-    // The values being non-zero value makes deployment a bit more expensive,
-    // but in exchange the refund on every call to nonReentrant will be lower in
-    // amount. Since refunds are capped to a percentage of the total
-    // transaction's gas, it is best to keep them low in cases like this one, to
-    // increase the likelihood of the full refund coming into effect.
-    uint256 private constant NOT_ENTERED = 1;
-    uint256 private constant ENTERED = 2;
-
-    uint256 private _status;
-
-    /**
-     * @dev Unauthorized reentrant call.
-     */
-    error ReentrancyGuardReentrantCall();
-
-    constructor() {
-        _status = NOT_ENTERED;
-    }
-
-    /**
-     * @dev Prevents a contract from calling itself, directly or indirectly.
-     * Calling a `nonReentrant` function from another `nonReentrant`
-     * function is not supported. It is possible to prevent this from happening
-     * by making the `nonReentrant` function external, and making it call a
-     * `private` function that does the actual work.
-     */
-    modifier nonReentrant() {
-        _nonReentrantBefore();
-        _;
-        _nonReentrantAfter();
-    }
-
-    function _nonReentrantBefore() private {
-        // On the first call to nonReentrant, _status will be NOT_ENTERED
-        if (_status == ENTERED) {
-            revert ReentrancyGuardReentrantCall();
-        }
-
-        // Any calls to nonReentrant after this point will fail
-        _status = ENTERED;
-    }
-
-    function _nonReentrantAfter() private {
-        // By storing the original value once again, a refund is triggered (see
-        // https://eips.ethereum.org/EIPS/eip-2200)
-        _status = NOT_ENTERED;
-    }
-
-    /**
-     * @dev Returns true if the reentrancy guard is currently set to "entered", which indicates there is a
-     * `nonReentrant` function in the call stack.
-     */
-    function _reentrancyGuardEntered() internal view returns (bool) {
-        return _status == ENTERED;
-    }
-}
-
-
-// File contracts/utils/IQuoter.sol
+// File contracts/AzuroHandler.sol
 
 // Original license: SPDX_License_Identifier: MIT
 pragma solidity ^0.8.0;
-
-interface IQuoter {
-    function quoteExactInput(bytes memory path, uint256 amountIn) external view returns (uint256 amountOut);
-}
-
-
-// File contracts/utils/ISwapRouter.sol
-
-// Original license: SPDX_License_Identifier: GPL-2.0-or-later
-pragma solidity >=0.5.0;
-// Original pragma directive: pragma abicoder v2
-
-
-/// @title Callback for IUniswapV3PoolActions#swap
-/// @notice Any contract that calls IUniswapV3PoolActions#swap must implement this interface
-interface IUniswapV3SwapCallback {
-    /// @notice Called to `msg.sender` after executing a swap via IUniswapV3Pool#swap.
-    /// @dev In the implementation you must pay the pool tokens owed for the swap.
-    /// The caller of this method must be checked to be a UniswapV3Pool deployed by the canonical UniswapV3Factory.
-    /// amount0Delta and amount1Delta can both be 0 if no tokens were swapped.
-    /// @param amount0Delta The amount of token0 that was sent (negative) or must be received (positive) by the pool by
-    /// the end of the swap. If positive, the callback must send that amount of token0 to the pool.
-    /// @param amount1Delta The amount of token1 that was sent (negative) or must be received (positive) by the pool by
-    /// the end of the swap. If positive, the callback must send that amount of token1 to the pool.
-    /// @param data Any data passed through by the caller via the IUniswapV3PoolActions#swap call
-    function uniswapV3SwapCallback(
-        int256 amount0Delta,
-        int256 amount1Delta,
-        bytes calldata data
-    ) external;
-}
-/// @title Router token swapping functionality
-/// @notice Functions for swapping tokens via Uniswap V3
-interface ISwapRouter is IUniswapV3SwapCallback {
-    struct ExactInputSingleParams {
-        address tokenIn;
-        address tokenOut;
-        uint24 fee;
-        address recipient;
-        //uint256 deadline;
-        uint256 amountIn;
-        uint256 amountOutMinimum;
-        uint160 sqrtPriceLimitX96;
-    }
-
-    /// @notice Swaps `amountIn` of one token for as much as possible of another token
-    /// @param params The parameters necessary for the swap, encoded as `ExactInputSingleParams` in calldata
-    /// @return amountOut The amount of the received token
-    function exactInputSingle(ExactInputSingleParams calldata params) external payable returns (uint256 amountOut);
-
-    struct ExactInputParams {
-        bytes path;
-        address recipient;
-        uint256 deadline;
-        uint256 amountIn;
-        uint256 amountOutMinimum;
-    }
-
-    /// @notice Swaps `amountIn` of one token for as much as possible of another along the specified path
-    /// @param params The parameters necessary for the multi-hop swap, encoded as `ExactInputParams` in calldata
-    /// @return amountOut The amount of the received token
-    function exactInput(ExactInputParams calldata params) external payable returns (uint256 amountOut);
-
-    struct ExactOutputSingleParams {
-        address tokenIn;
-        address tokenOut;
-        uint24 fee;
-        address recipient;
-        uint256 deadline;
-        uint256 amountOut;
-        uint256 amountInMaximum;
-        uint160 sqrtPriceLimitX96;
-    }
-
-    /// @notice Swaps as little as possible of one token for `amountOut` of another token
-    /// @param params The parameters necessary for the swap, encoded as `ExactOutputSingleParams` in calldata
-    /// @return amountIn The amount of the input token
-    function exactOutputSingle(ExactOutputSingleParams calldata params) external payable returns (uint256 amountIn);
-
-    struct ExactOutputParams {
-        bytes path;
-        address recipient;
-        uint256 deadline;
-        uint256 amountOut;
-        uint256 amountInMaximum;
-    }
-
-    /// @notice Swaps as little as possible of one token for `amountOut` of another along the specified path (reversed)
-    /// @param params The parameters necessary for the multi-hop swap, encoded as `ExactOutputParams` in calldata
-    /// @return amountIn The amount of the input token
-    function exactOutput(ExactOutputParams calldata params) external payable returns (uint256 amountIn);
-}
-
-
-// File contracts/utils/V3SpokePoolInterface.sol
-
-// Original license: SPDX_License_Identifier: BUSL-1.1
-pragma solidity ^0.8.0;
-
-// Contains structs and functions used by SpokePool contracts to facilitate universal settlement.
-interface V3SpokePoolInterface {
-    /**************************************
-     *              ENUMS                 *
-     **************************************/
-
-    // Fill status tracks on-chain state of deposit, uniquely identified by relayHash.
-    enum FillStatus {
-        Unfilled,
-        RequestedSlowFill,
-        Filled
-    }
-    // Fill type is emitted in the FilledRelay event to assist Dataworker with determining which types of
-    // fills to refund (e.g. only fast fills) and whether a fast fill created a sow fill excess.
-    enum FillType {
-        FastFill,
-        // Fast fills are normal fills that do not replace a slow fill request.
-        ReplacedSlowFill,
-        // Replaced slow fills are fast fills that replace a slow fill request. This type is used by the Dataworker
-        // to know when to send excess funds from the SpokePool to the HubPool because they can no longer be used
-        // for a slow fill execution.
-        SlowFill
-        // Slow fills are requested via requestSlowFill and executed by executeSlowRelayLeaf after a bundle containing
-        // the slow fill is validated.
-    }
-
-    /**************************************
-     *              STRUCTS               *
-     **************************************/
-
-    // This struct represents the data to fully specify a **unique** relay submitted on this chain.
-    // This data is hashed with the chainId() and saved by the SpokePool to prevent collisions and protect against
-    // replay attacks on other chains. If any portion of this data differs, the relay is considered to be
-    // completely distinct.
-    struct V3RelayData {
-        // The address that made the deposit on the origin chain.
-        address depositor;
-        // The recipient address on the destination chain.
-        address recipient;
-        // This is the exclusive relayer who can fill the deposit before the exclusivity deadline.
-        address exclusiveRelayer;
-        // Token that is deposited on origin chain by depositor.
-        address inputToken;
-        // Token that is received on destination chain by recipient.
-        address outputToken;
-        // The amount of input token deposited by depositor.
-        uint256 inputAmount;
-        // The amount of output token to be received by recipient.
-        uint256 outputAmount;
-        // Origin chain id.
-        uint256 originChainId;
-        // The id uniquely identifying this deposit on the origin chain.
-        uint32 depositId;
-        // The timestamp on the destination chain after which this deposit can no longer be filled.
-        uint32 fillDeadline;
-        // The timestamp on the destination chain after which any relayer can fill the deposit.
-        uint32 exclusivityDeadline;
-        // Data that is forwarded to the recipient.
-        bytes message;
-    }
-
-    // Contains parameters passed in by someone who wants to execute a slow relay leaf.
-    struct V3SlowFill {
-        V3RelayData relayData;
-        uint256 chainId;
-        uint256 updatedOutputAmount;
-    }
-
-    // Contains information about a relay to be sent along with additional information that is not unique to the
-    // relay itself but is required to know how to process the relay. For example, "updatedX" fields can be used
-    // by the relayer to modify fields of the relay with the depositor's permission, and "repaymentChainId" is specified
-    // by the relayer to determine where to take a relayer refund, but doesn't affect the uniqueness of the relay.
-    struct V3RelayExecutionParams {
-        V3RelayData relay;
-        bytes32 relayHash;
-        uint256 updatedOutputAmount;
-        address updatedRecipient;
-        bytes updatedMessage;
-        uint256 repaymentChainId;
-    }
-
-    // Packs together parameters emitted in FilledV3Relay because there are too many emitted otherwise.
-    // Similar to V3RelayExecutionParams, these parameters are not used to uniquely identify the deposit being
-    // filled so they don't have to be unpacked by all clients.
-    struct V3RelayExecutionEventInfo {
-        address updatedRecipient;
-        bytes updatedMessage;
-        uint256 updatedOutputAmount;
-        FillType fillType;
-    }
-
-    /**************************************
-     *              EVENTS                *
-     **************************************/
-
-    event V3FundsDeposited(
-        address inputToken,
-        address outputToken,
-        uint256 inputAmount,
-        uint256 outputAmount,
-        uint256 indexed destinationChainId,
-        uint32 indexed depositId,
-        uint32 quoteTimestamp,
-        uint32 fillDeadline,
-        uint32 exclusivityDeadline,
-        address indexed depositor,
-        address recipient,
-        address exclusiveRelayer,
-        bytes message
-    );
-
-    event RequestedSpeedUpV3Deposit(
-        uint256 updatedOutputAmount,
-        uint32 indexed depositId,
-        address indexed depositor,
-        address updatedRecipient,
-        bytes updatedMessage,
-        bytes depositorSignature
-    );
-
-    event FilledV3Relay(
-        address inputToken,
-        address outputToken,
-        uint256 inputAmount,
-        uint256 outputAmount,
-        uint256 repaymentChainId,
-        uint256 indexed originChainId,
-        uint32 indexed depositId,
-        uint32 fillDeadline,
-        uint32 exclusivityDeadline,
-        address exclusiveRelayer,
-        address indexed relayer,
-        address depositor,
-        address recipient,
-        bytes message,
-        V3RelayExecutionEventInfo relayExecutionInfo
-    );
-
-    event RequestedV3SlowFill(
-        address inputToken,
-        address outputToken,
-        uint256 inputAmount,
-        uint256 outputAmount,
-        uint256 indexed originChainId,
-        uint32 indexed depositId,
-        uint32 fillDeadline,
-        uint32 exclusivityDeadline,
-        address exclusiveRelayer,
-        address depositor,
-        address recipient,
-        bytes message
-    );
-
-    /**************************************
-     *              FUNCTIONS             *
-     **************************************/
-
-    function depositV3(
-        address depositor,
-        address recipient,
-        address inputToken,
-        address outputToken,
-        uint256 inputAmount,
-        uint256 outputAmount,
-        uint256 destinationChainId,
-        address exclusiveRelayer,
-        uint32 quoteTimestamp,
-        uint32 fillDeadline,
-        uint32 exclusivityDeadline,
-        bytes calldata message
-    ) external payable;
-
-    function speedUpV3Deposit(
-        address depositor,
-        uint32 depositId,
-        uint256 updatedOutputAmount,
-        address updatedRecipient,
-        bytes calldata updatedMessage,
-        bytes calldata depositorSignature
-    ) external;
-
-    function fillV3Relay(V3RelayData calldata relayData, uint256 repaymentChainId) external;
-
-    function fillV3RelayWithUpdatedDeposit(
-        V3RelayData calldata relayData,
-        uint256 repaymentChainId,
-        uint256 updatedOutputAmount,
-        address updatedRecipient,
-        bytes calldata updatedMessage,
-        bytes calldata depositorSignature
-    ) external;
-
-    function requestV3SlowFill(V3RelayData calldata relayData) external;
-
-    function executeV3SlowRelayLeaf(
-        V3SlowFill calldata slowFillLeaf,
-        uint32 rootBundleId,
-        bytes32[] calldata proof
-    ) external;
-
-    /**************************************
-     *              ERRORS                *
-     **************************************/
-
-    error DisabledRoute();
-    error InvalidQuoteTimestamp();
-    error InvalidFillDeadline();
-    error InvalidExclusiveRelayer();
-    error InvalidExclusivityDeadline();
-    error MsgValueDoesNotMatchInputAmount();
-    error NotExclusiveRelayer();
-    error NoSlowFillsInExclusivityWindow();
-    error RelayFilled();
-    error InvalidSlowFillRequest();
-    error ExpiredFillDeadline();
-    error InvalidMerkleProof();
-    error InvalidChainId();
-    error InvalidMerkleLeaf();
-    error ClaimedMerkleLeaf();
-    error InvalidPayoutAdjustmentPct();
-}
-
-
-// File contracts/Sentinel.sol
-
-// Original license: SPDX_License_Identifier: MIT
-pragma solidity ^0.8.0;
-
-//TODO: change factory address as const, only factory modifier
-//TODO: deploy quoter contract on worldchain
 
 // ======================== Imports ========================
 
@@ -1880,155 +1289,66 @@ pragma solidity ^0.8.0;
 
 
 
-
-
-
-
-
-
-
 // ======================== Contract Definition ========================
 /**
- * @title Sentinel
- * @notice This contract handles cross-chain sports betting operations using Azuro Protocol and Across Bridge
- * @dev Acts as a destination chain contract that receives bets and processes withdrawals
+ * @title AzuroHandler
+ * @notice This contract handles betting operations using Azuro Protocol taking an optional protocol and referrer fee
  */
-contract Sentinel is ReentrancyGuard, Pausable, IERC721Receiver {
+contract AzuroHandler is Pausable {
   using SafeERC20 for IERC20;
 
   // ======================== Events ========================
-  event BetPlaced(uint256 indexed idBet);
-  event WithdrawBet(uint256 indexed idBet);
-  event OperatorChanged(
-    address indexed oldOperator,
-    address indexed newOperator
+  event BetPlaced(
+    uint256 indexed idBet,
+    address indexed bettorAddress,
+    address indexed referrerAddress,
+    uint256 amountIn,
+    address poolAddress
   );
-  event ProtocolFeeRecipientChanged(
-    address indexed oldRecipient,
-    address indexed newRecipient
+  event FeePaid(
+    uint256 indexed idBet,
+    address indexed bettorAddress,
+    address indexed referrerAddress,
+    uint256 amountIn,
+    uint256 amountOut,
+    uint256 protocolFee,
+    uint256 referrerFee
   );
-  event ProtocolFeePercentageChanged(uint256 oldFee, uint256 newFee);
-  event ReferralFeePercentageChanged(uint256 oldFee, uint256 newFee);
-  event CoreBaseChanged(
-    address indexed oldCoreBase,
-    address indexed newCoreBase
-  );
-  event QuoterChanged(address indexed oldQuoter, address indexed newQuoter);
-  event PoolFeeChanged(uint24 oldFee, uint24 newFee);
-  event DestinationChainIdChanged(uint256 oldChainId, uint256 newChainId);
-  event ProtocolInitialized();
-  event CoreInitialized();
-  event EmergencyWithdraw(address indexed token, uint256 amount);
 
   // ======================== Custom Errors ========================
-  error AlreadyInitialized(address controller);
-  error AlreadyProtocolInitialized();
-  error NotAcrossHandler(address acrossGenericHandler);
   error NotOperator(address operator);
-  error NotController(address controller);
-  error NotSentinel();
-  error NotControllerOrOperator(address controller);
-  error NotFactory(address factory);
-  error InvalidControllerAddress();
-  error InvalidAmountOutMin();
-  error InvalidAmountForAcross();
-  error InvalidExpressAddress();
-  error InvalidOperatorAddress();
-  error InvalidSwapRouterAddress();
-  error InvalidLPAddress();
-  error InvalidAzuroBetAddress();
-  error InvalidUSDCAddress();
-  error InvalidUSDTAddress();
-  error InvalidAcrossHandlerAddress();
-  error InvalidAcrossSpokePoolAddress();
-  error InvalidQuoterAddress();
-  error InvalidPoolFee();
-  error InvalidDestinationChainId();
-  error InvalidProtocolFeePercentage();
-  error InvalidProtocolFeeRecipientAddress();
-  error InvalidReferralFeePercentage();
-  error InvalidCoreBaseAddress();
-  error InvalidTokenAddress();
-  error InvalidAmount();
   error PausedState();
-  error InvalidSignature();
-  error ArrayLengthsMismatch();
-  error EmptyBetArrays();
+  error InvalidOperatorAddress();  
+  error InvalidProtocolFeeRecipientAddress();
+  error InvalidAmount();
+  error InvalidBetData();
+  error InvalidFeePercentage();
   error DuplicateConditionIds();
+  error InvalidReferralFeePercentage();
+  error InvalidProtocolFeePercentage();
+  error InvalidBettorAddress();
 
   // ======================== Constants ========================
   uint256 private constant BASIS_POINTS = 10000; // 100% (100 * 100 = 10000)
-  uint256 private constant USDC_DECIMALS = 6; // 1 USDC = 10^6 USDC
-  address private constant FACTORY = 0x0000000000000000000000000000000000000000; //TODO
+  uint64  private constant MIN_ODDS = 1000000000000; // min odds Azuro (1*10^12)
+  uint256 private constant MAX_REFERRER_FEE_PERCENTAGE = 500; // 5%
+  uint256 private constant MAX_PROTOCOL_FEE_PERCENTAGE = 500; // 5%
+
+  address private constant WETH = 0x4200000000000000000000000000000000000006; 
+  address private constant AZURO_CORE = 0xf5A6B7940cbdb80F294f1eAc59575562966aa3FC; 
+  address private constant AZURO_EXPRESS = 0x4731Bb0D12c4f992Cf02BDc7A48e8656d0E382Ed; 
+  address private constant AZURO_LP = 0xF22E9e29728d6592eB54b916Ba9f464d9F237dB1; 
 
   // ======================== State Variables ========================
-  // Access Control
   address public operator; // Operator address for privileged operations
-  address public controller; // Controller address for privileged operations
-
-  // Protocol Configuration
   address public protocolFeeRecipient; // Address receiving protocol fees
-  uint256 public protocolFeePercentage; // Fee percentage in basis points
-  uint256 public referralFeePercentage; // Referral fee percentage in basis points
-  uint256 public destinationChainId; // Target chain ID for cross-chain operations
-
-  // Protocol Addresses
-  address public acrossGenericHandler; // Across bridge handler address
-  address public acrossSpokePool; // Across spoke pool address
-  address public coreBase; // Azuro core contract address
-  address public azuroBet; // Azuro bet interface
-  address public expressAddress; // Express address for multiple bets
-  address public quoter; // Uniswap quoter address
-  address public usdcAddress; // USDC token address
-  address public usdcAddressDestination; // USDC token address on destination chain
-  address public usdtAddress; // USDT token address
-  uint24 public poolFee; // Uniswap pool fee
-
-  // Protocol Interfaces
-  ISwapRouter public swapRouter; // Uniswap router interface
-  ILP public lp; // Azuro liquidity pool interface
-  bool public initialized; // Initialization status
-  bool public protocolInitialized; // Protocol initialization status
 
   // ======================== Modifiers ========================
-
-  /**
-   * @notice Ensures caller is either owner or operator
-   */
-  modifier onlyControllerOrOperator() {
-    if (msg.sender != controller && msg.sender != operator) {
-      revert NotControllerOrOperator(msg.sender);
-    }
-    _;
-  }
-
   /**
    * @notice Ensures caller is operator
    */
   modifier onlyOperator() {
-    if (msg.sender != operator) {
-      revert NotOperator(msg.sender);
-    }
-    _;
-  }
-
-  /**
-   * @notice Ensures caller is controller
-   */
-  modifier onlyController() {
-    if (msg.sender != controller) {
-      revert NotController(msg.sender);
-    }
-    _;
-  }
-
-  /**
-   * @notice Ensures caller is factory
-   */
-  modifier onlyFactory() {
-    if (msg.sender != FACTORY) {
-      revert NotFactory(msg.sender);
-    }
+    if (msg.sender != operator) revert NotOperator(msg.sender);
     _;
   }
 
@@ -2036,155 +1356,39 @@ contract Sentinel is ReentrancyGuard, Pausable, IERC721Receiver {
    * @notice Ensures contract is not paused
    */
   modifier whenNotPausedOverride() {
-    if (paused()) {
-      revert PausedState();
-    }
+    if (paused()) revert PausedState();
     _;
   }
 
-  // ======================== Initialization Functions ========================
-
-  /**
-   * @notice First phase initialization with core parameters
-   */
-  function initializeCore(
-    address _owner,
+  //======================= Constructor ========================
+  constructor(
     address _operator,
-    ISwapRouter _swapRouter,
-    ILP _lp,
-    address _azuroBet,
-    address _usdcAddress,
-    address _usdcAddressDestination,
-    address _usdtAddress
-  ) external /*onlyFactory*/ {
-    _initializeCore(
-      _owner,
-      _operator,
-      _swapRouter,
-      _lp,
-      _azuroBet,
-      _usdcAddress,
-      _usdcAddressDestination,
-      _usdtAddress
-    );
-  }
-
-  /**
-   * @notice Second phase initialization with protocol parameters
-   */
-  function initializeProtocol(
-    address _acrossGenericHandler,
-    address _acrossSpokePool,
-    address _protocolFeeRecipient,
-    uint256 _protocolFeePercentage,
-    uint256 _referralFeePercentage,
-    address _coreBase,
-    address _expressAddress,
-    address _quoter,
-    uint24 _poolFee,
-    uint256 _destinationChainId
-  ) external /*onlyFactory*/ {
-    _initializeProtocol(
-      _acrossGenericHandler,
-      _acrossSpokePool,
-      _protocolFeeRecipient,
-      _protocolFeePercentage,
-      _referralFeePercentage,
-      _coreBase,
-      _expressAddress,
-      _quoter,
-      _poolFee,
-      _destinationChainId
-    );
-  }
-
-  /**
-   * @dev Internal function to initialize core contract state
-   */
-  function _initializeCore(
-    address _controller,
-    address _operator,
-    ISwapRouter _swapRouter,
-    ILP _lp,
-    address _azuroBet,
-    address _usdcAddress,
-    address _usdcAddressDestination,
-    address _usdtAddress
-  ) private {
-    if (initialized) {
-      revert AlreadyInitialized(controller);
-    }
-    if (_controller == address(0)) revert InvalidControllerAddress();
+    address _protocolFeeRecipient
+  ) {
     if (_operator == address(0)) revert InvalidOperatorAddress();
-    if (address(_swapRouter) == address(0)) revert InvalidSwapRouterAddress();
-    if (address(_lp) == address(0)) revert InvalidLPAddress();
-    if (address(_azuroBet) == address(0)) revert InvalidAzuroBetAddress();
-    if (_usdcAddress == address(0)) revert InvalidUSDCAddress();
-    if (_usdcAddressDestination == address(0)) revert InvalidUSDCAddress();
-    if (_usdtAddress == address(0)) revert InvalidUSDTAddress();
-
+    if (_protocolFeeRecipient == address(0)) revert InvalidProtocolFeeRecipientAddress();
     operator = _operator;
-    controller = _controller;
-    swapRouter = _swapRouter;
-    lp = _lp;
-    azuroBet = _azuroBet;
-    usdcAddress = _usdcAddress;
-    usdcAddressDestination = _usdcAddressDestination;
-    usdtAddress = _usdtAddress;
-    initialized = true;
+    protocolFeeRecipient = _protocolFeeRecipient;
+  }
 
-    emit CoreInitialized();
+  // ======================== Pausable Functions ========================
+  /**
+   * @notice Pauses the contract, disabling certain functions
+   * @dev Only callable by the owner or operator
+   */
+  function pause() external onlyOperator {
+    _pause();
   }
 
   /**
-   * @dev Internal function to initialize protocol parameters
+   * @notice Unpauses the contract, enabling previously disabled functions
+   * @dev Only callable by the owner or operator
    */
-  function _initializeProtocol(
-    address _acrossGenericHandler,
-    address _acrossSpokePool,
-    address _protocolFeeRecipient,
-    uint256 _protocolFeePercentage,
-    uint256 _referralFeePercentage,
-    address _coreBase,
-    address _expressAddress,
-    address _quoter,
-    uint24 _poolFee,
-    uint256 _destinationChainId
-  ) private {
-    if (protocolInitialized) {
-      revert AlreadyProtocolInitialized();
-    }
-    if (_protocolFeePercentage == 0) revert InvalidProtocolFeePercentage();
-
-    if (_acrossGenericHandler == address(0))
-      revert InvalidAcrossHandlerAddress();
-    if (_acrossSpokePool == address(0)) revert InvalidAcrossSpokePoolAddress();
-    if (_protocolFeeRecipient == address(0))
-      revert InvalidProtocolFeeRecipientAddress();
-    if (_referralFeePercentage == 0) revert InvalidReferralFeePercentage();
-    if (_coreBase == address(0)) revert InvalidCoreBaseAddress();
-    if (_expressAddress == address(0)) revert InvalidExpressAddress();
-    if (_quoter == address(0)) revert InvalidQuoterAddress();
-    if (_poolFee == 0) revert InvalidPoolFee();
-    if (_destinationChainId == 0) revert InvalidDestinationChainId();
-
-    acrossGenericHandler = _acrossGenericHandler;
-    acrossSpokePool = _acrossSpokePool;
-    protocolFeeRecipient = _protocolFeeRecipient;
-    protocolFeePercentage = _protocolFeePercentage;
-    referralFeePercentage = _referralFeePercentage;
-    coreBase = _coreBase;
-    expressAddress = _expressAddress;
-    quoter = _quoter;
-    poolFee = _poolFee;
-    destinationChainId = _destinationChainId;
-    protocolInitialized = true;
-
-    emit ProtocolInitialized();
+  function unpause() external onlyOperator {
+    _unpause();
   }
 
   // ======================== Setter Functions ========================
-
   /**
    * @notice Sets a new operator address
    * @dev Only callable by the current operator
@@ -2192,11 +1396,9 @@ contract Sentinel is ReentrancyGuard, Pausable, IERC721Receiver {
    */
   function setOperator(
     address _operator
-  ) external onlyController whenNotPausedOverride {
+  ) external onlyOperator {
     if (_operator == address(0)) revert InvalidOperatorAddress();
-    address oldOperator = operator;
     operator = _operator;
-    emit OperatorChanged(oldOperator, _operator);
   }
 
   /**
@@ -2206,326 +1408,77 @@ contract Sentinel is ReentrancyGuard, Pausable, IERC721Receiver {
    */
   function setProtocolFeeRecipient(
     address _protocolFeeRecipient
-  ) external onlyController whenNotPausedOverride {
-    if (_protocolFeeRecipient == address(0))
-      revert InvalidProtocolFeeRecipientAddress();
-    address oldRecipient = protocolFeeRecipient;
+  ) external onlyOperator {
+    if (_protocolFeeRecipient == address(0)) revert InvalidProtocolFeeRecipientAddress();
     protocolFeeRecipient = _protocolFeeRecipient;
-    emit ProtocolFeeRecipientChanged(oldRecipient, _protocolFeeRecipient);
-  }
-
-  /**
-   * @notice Sets the protocol fee percentage
-   * @dev Only callable by the operator
-   * @param _protocolFeePercentage New fee percentage in basis points (max 1000 = 10%)
-   */
-  function setProtocolFeePercentage(
-    uint256 _protocolFeePercentage
-  ) external onlyController whenNotPausedOverride {
-    if (_protocolFeePercentage == 0) revert InvalidProtocolFeePercentage();
-    uint256 oldFee = protocolFeePercentage;
-    protocolFeePercentage = _protocolFeePercentage;
-    emit ProtocolFeePercentageChanged(oldFee, _protocolFeePercentage);
-  }
-
-  /**
-   * @notice Sets the referral fee percentage
-   * @dev Only callable by the operator
-   * @param _referralFeePercentage New fee percentage in basis points (max 1000 = 10%)
-   */
-  function setReferralFeePercentage(
-    uint256 _referralFeePercentage
-  ) external onlyController whenNotPausedOverride {
-    if (_referralFeePercentage > 1000) revert InvalidReferralFeePercentage();
-    uint256 oldFee = referralFeePercentage;
-    referralFeePercentage = _referralFeePercentage;
-    emit ReferralFeePercentageChanged(oldFee, _referralFeePercentage);
-  }
-
-  /**
-   * @notice Updates the CoreBase address
-   * @dev Only callable by the operator
-   * @param _coreBase New CoreBase address
-   */
-  function setCoreBase(
-    address _coreBase
-  ) external onlyController whenNotPausedOverride {
-    if (_coreBase == address(0)) revert InvalidCoreBaseAddress();
-    address oldCoreBase = coreBase;
-    coreBase = _coreBase;
-    emit CoreBaseChanged(oldCoreBase, _coreBase);
-  }
-
-  /**
-   * @notice Updates the Quoter address
-   * @dev Only callable by the operator
-   * @param _quoter New Quoter address
-   */
-  function setQuoter(
-    address _quoter
-  ) external onlyController whenNotPausedOverride {
-    if (_quoter == address(0)) revert InvalidQuoterAddress();
-    address oldQuoter = quoter;
-    quoter = _quoter;
-    emit QuoterChanged(oldQuoter, _quoter);
-  }
-
-  /**
-   * @notice Updates the Uniswap pool fee
-   * @dev Only callable by the operator
-   * @param _poolFee New pool fee
-   */
-  function setPoolFee(
-    uint24 _poolFee
-  ) external onlyController whenNotPausedOverride {
-    if (_poolFee == 0) revert InvalidPoolFee();
-    uint24 oldFee = poolFee;
-    poolFee = _poolFee;
-    emit PoolFeeChanged(oldFee, _poolFee);
-  }
-
-  /**
-   * @notice Updates the destination chain ID
-   * @dev Only callable by the operator
-   * @param _destinationChainId New destination chain ID
-   */
-  function setDestinationChainId(
-    uint256 _destinationChainId
-  ) external onlyController whenNotPausedOverride {
-    if (_destinationChainId == 0) revert InvalidDestinationChainId();
-    uint256 oldChainId = destinationChainId;
-    destinationChainId = _destinationChainId;
-    emit DestinationChainIdChanged(oldChainId, _destinationChainId);
   }
 
   // ======================== Core Functions ========================
 
   /**
    * @notice Handles incoming bets from the source chain
-   * @dev Only callable by the Across handler
-   * @param tokenIn Source token address
-   * @param tokenOut Destination token address
+   * @param bettorAddress Address of the bettor
    * @param amountIn Amount of tokens being sent
-   * @param bet Encoded bet data (array of condition, outcome, referrer)
+   * @param referrerAddress Address of the referrer
+   * @param referrerFeePercentage Referrer fee percentage
+   * @param minOdds Minimum odds
+   * @param conditions Bet conditions
+   * @param outcomes Bet outcomes
    */
   function handleBet(
-    address tokenIn,
-    address tokenOut,
+    address bettorAddress,
     uint256 amountIn,
-    bytes memory bet
-  ) external nonReentrant whenNotPausedOverride {
-    if (msg.sender != acrossGenericHandler) {
-      revert NotAcrossHandler(acrossGenericHandler);
-    }
-    if (tokenIn == address(0) || tokenOut == address(0)) {
-      revert InvalidTokenAddress();
-    }
-    if (amountIn == 0) {
-      revert InvalidAmount();
-    }
+    address referrerAddress,
+    uint256 referrerFeePercentage,
+    uint256 protocolFeePercentage,
+    uint64 minOdds,
+    uint256[] memory conditions,
+    uint64[] memory outcomes
+  ) external whenNotPausedOverride returns (uint256 idBet) {
+    // Validate amount
+    if (amountIn == 0) revert InvalidAmount();
+    // Validate bettor address
+    if (bettorAddress == address(0)) revert InvalidBettorAddress();
+    // Validate array lengths match
+    if (conditions.length != outcomes.length || conditions.length == 0) revert InvalidBetData();
+    // Validate protocol fee percentage
+    if (protocolFeePercentage > MAX_PROTOCOL_FEE_PERCENTAGE) revert InvalidProtocolFeePercentage();
+    // Validate referrer fee percentage only if referrer address is provided
+    if (referrerAddress != address(0) && referrerFeePercentage > MAX_REFERRER_FEE_PERCENTAGE) 
+      revert InvalidReferralFeePercentage();
 
-    IERC20(tokenIn).safeTransferFrom(
-      acrossGenericHandler,
-      address(this),
-      amountIn
-    );
+    // Transfer the tokens to the contract
+    IERC20(WETH).safeTransferFrom(msg.sender, address(this), amountIn);
 
     // handle protocol fee function
-    uint256 amountInAfterProtocolFee = _handleProtocolFee(amountIn);
+    uint256 amountInAfterProtocolFee = _handleProtocolFee(amountIn, protocolFeePercentage);
+    uint256 amountInAfterReferrerFee = amountInAfterProtocolFee;
 
-    // Decode bet data
-    (
-      uint256[] memory conditions,
-      uint64[] memory outcomes,
-      address referrer
-    ) = abi.decode(bet, (uint256[], uint64[], address));
-
-    // Validate array lengths match
-    require(conditions.length == outcomes.length, "Array lengths mismatch");
-    require(conditions.length > 0, "Empty bet arrays");
-
-    uint256 referralFees = 0;
-
-    if (referrer != address(0)) {
-      referralFees = _calculatePercentage(
+    if (referrerAddress != address(0)) {
+      amountInAfterReferrerFee = _handleReferrerFee(
+        referrerAddress,
         amountInAfterProtocolFee,
-        referralFeePercentage
+        referrerFeePercentage
       );
-      IERC20(tokenIn).safeTransfer(referrer, referralFees);
     }
-
-    uint256 amountInAfterReferralFees = amountInAfterProtocolFee - referralFees;
-
-    // Approve swapRouter to spend tokens
-    IERC20(tokenIn).forceApprove(
-      address(swapRouter),
-      amountInAfterReferralFees
-    );
-
-    uint256 amountOut = _swap(tokenIn, tokenOut, amountInAfterReferralFees);
 
     // Approve LP to spend swapped tokens
-    IERC20(tokenOut).forceApprove(address(lp), amountOut);
+    IERC20(WETH).approve(AZURO_LP, amountInAfterReferrerFee);
 
     // Place bets for the player
-    uint256 idBet = _bet(
-      uint128(amountOut),
+    idBet = _bet(
+      bettorAddress,
+      referrerAddress,
+      uint128(amountInAfterReferrerFee),
       conditions,
       outcomes,
+      minOdds,
       conditions.length > 1 // isExpress = true if multiple bets
     );
-    emit BetPlaced(idBet);
-  }
-
-  /**
-   * @notice Processes bet withdrawals and sends funds back across the bridge
-   * @dev Only callable by the owner or operator
-   * @param idBet Bet ID to withdraw
-   * @param totalFeeAmount Amount to withdraw
-   * @param quoteTimestamp Timestamp for exclusivity
-   * @param exclusivityDeadline Deadline for exclusivity
-   * @param exclusivityRelayer Relayer address
-   * @param onlyWithdraw If true, only withdraws from Azuro without swapping or bridging
-   */
-  function handleWithdraw(
-    uint256 idBet,
-    uint256 totalFeeAmount,
-    uint32 quoteTimestamp,
-    uint32 exclusivityDeadline,
-    address exclusivityRelayer,
-    bool isMultipleBet,
-    bool onlyWithdraw
-  ) external onlyController nonReentrant whenNotPausedOverride {
-    _handleWithdraw(
-      idBet,
-      totalFeeAmount,
-      quoteTimestamp,
-      exclusivityDeadline,
-      exclusivityRelayer,
-      isMultipleBet,
-      onlyWithdraw
-    );
-    emit WithdrawBet(idBet);
-  }
-
-  /**
-   * @notice Processes bet withdrawals and sends funds back across the bridge
-   * @dev Only callable by the owner or operator
-   * @param idBet Bet ID to withdraw
-   * @param totalFeeAmount Amount to withdraw
-   * @param quoteTimestamp Timestamp for exclusivity
-   * @param exclusivityDeadline Deadline for exclusivity
-   * @param exclusivityRelayer Relayer address
-   * @param onlyWithdraw If true, only withdraws from Azuro without swapping or bridging
-   */
-  function handleWithdrawOperator(
-    uint256 idBet,
-    uint256 totalFeeAmount,
-    uint32 quoteTimestamp,
-    uint32 exclusivityDeadline,
-    address exclusivityRelayer,
-    bool isMultipleBet,
-    bool onlyWithdraw,
-    bytes memory controllerSignature
-  ) external onlyOperator nonReentrant whenNotPausedOverride {
-    // Verify controller signature
-    _verifyControllerSignature(
-      idBet,
-      totalFeeAmount,
-      quoteTimestamp,
-      exclusivityDeadline,
-      exclusivityRelayer,
-      isMultipleBet,
-      onlyWithdraw,
-      controllerSignature
-    );
-    _handleWithdraw(
-      idBet,
-      totalFeeAmount,
-      quoteTimestamp,
-      exclusivityDeadline,
-      exclusivityRelayer,
-      isMultipleBet,
-      onlyWithdraw
-    );
-    emit WithdrawBet(idBet);
-  }
-
-  // ======================== Emergency Functions ========================
-
-  /**
-   * @notice Allows owner or operator to withdraw tokens to owner's wallet
-   * @dev Only callable by the owner or operator
-   * @param token Token address
-   * @param amount Amount of tokens to withdraw
-   */
-  function emergencyWithdraw(
-    address token,
-    uint256 amount
-  ) external onlyController {
-    if (token == address(0)) {
-      revert InvalidTokenAddress();
-    }
-    IERC20(token).safeTransfer(controller, amount);
-    emit EmergencyWithdraw(token, amount);
-  }
-
-  // ======================== Pausable Functions ========================
-
-  /**
-   * @notice Pauses the contract, disabling certain functions
-   * @dev Only callable by the owner or operator
-   */
-  function pause() external onlyOperator {
-    _pause();
-    emit Paused(msg.sender);
-  }
-
-  /**
-   * @notice Unpauses the contract, enabling previously disabled functions
-   * @dev Only callable by the owner or operator
-   */
-  function unpause() external onlyOperator {
-    _unpause();
-    emit Unpaused(msg.sender);
+    emit FeePaid(idBet, bettorAddress, referrerAddress, amountIn, amountInAfterReferrerFee, protocolFeePercentage, referrerFeePercentage);
   }
 
   // ======================== Internal Helper Functions ========================
-
-  /**
-   * @notice Performs token swap using Uniswap V3
-   * @dev Uses the quoter to determine minimum output amount
-   * @param tokenIn Input token address
-   * @param tokenOut Output token address
-   * @param amountIn Amount of input tokens
-   * @return amountOut Amount of output tokens received
-   */
-  function _swap(
-    address tokenIn,
-    address tokenOut,
-    uint256 amountIn
-  ) internal returns (uint256 amountOut) {
-    bytes memory path = abi.encodePacked(tokenIn, poolFee, tokenOut);
-    uint256 amountOutMin = IQuoter(quoter).quoteExactInput(path, amountIn);
-    if (amountOutMin == 0) {
-      revert InvalidAmountOutMin();
-    }
-
-    ISwapRouter.ExactInputSingleParams memory params = ISwapRouter
-      .ExactInputSingleParams({
-        tokenIn: tokenIn,
-        tokenOut: tokenOut,
-        fee: poolFee,
-        recipient: address(this),
-        //deadline: block.timestamp + 1800, // 30 minutes
-        amountIn: amountIn,
-        amountOutMinimum: amountOutMin,
-        sqrtPriceLimitX96: 0
-      });
-
-    // Execute the swap
-    amountOut = swapRouter.exactInputSingle(params);
-  }
 
   /**
    * @notice Places a bet on the Azuro protocol
@@ -2537,20 +1490,18 @@ contract Sentinel is ReentrancyGuard, Pausable, IERC721Receiver {
    * @return idBet ID of the placed bet
    */
   function _bet(
+    address bettorAddress,
+    address referrerAddress,
     uint128 amountOut,
     uint256[] memory conditions,
     uint64[] memory outcomes,
+    uint64 minOdds,
     bool isMultiple
   ) internal returns (uint256 idBet) {
-    uint64 minOdds = 1;
+    if (minOdds < MIN_ODDS) {
+      minOdds = MIN_ODDS;
+    }
     uint64 expiresAt = uint64(block.timestamp + 1800); // 30 minutes
-
-    if (conditions.length != outcomes.length) {
-      revert ArrayLengthsMismatch();
-    }
-    if (conditions.length == 0) {
-      revert EmptyBetArrays();
-    }
 
     if (isMultiple) {
       // Create array of CoreBetData for multiple bets
@@ -2560,40 +1511,84 @@ contract Sentinel is ReentrancyGuard, Pausable, IERC721Receiver {
 
       // Fill the array with bet data
       for (uint256 i = 0; i < conditions.length; i++) {
-        // Validate unique condition IDs
-        for (uint256 j = 0; j < i; j++) {
-          if (conditions[i] == conditions[j]) {
-            revert DuplicateConditionIds();
-          }
-        }
-
         subBets[i] = ICoreBase.CoreBetData({
           conditionId: conditions[i],
           outcomeId: outcomes[i]
         });
       }
-
       // Encode the CoreBetData array
       bytes memory encodedBetData = abi.encode(subBets);
-
       // Create the BetData struct
       IBet.BetData memory betData = IBet.BetData({
-        affiliate: address(0),
-        minOdds: 1,
+        affiliate: protocolFeeRecipient,
+        minOdds: minOdds,
         data: encodedBetData
       });
-
-      // Place the bet directly without try-catch
-      idBet = lp.bet(expressAddress, amountOut, expiresAt, betData);
+      // Place the bet for the bettor address on the express azuro contract (multiple bets)
+      idBet = ILP(AZURO_LP).betFor(
+        bettorAddress,
+        AZURO_EXPRESS,
+        amountOut,
+        expiresAt,
+        betData
+      );
+      emit BetPlaced(idBet, bettorAddress, referrerAddress, amountOut, AZURO_EXPRESS);
     } else {
+      // Encode the bet data for the single bet
+      bytes memory encodedBetData = abi.encode(conditions[0], outcomes[0]);
       // Single bet case remains unchanged
       IBet.BetData memory betData = IBet.BetData({
-        affiliate: address(0), // affiliate
+        affiliate: protocolFeeRecipient,
         minOdds: minOdds,
-        data: abi.encode(conditions[0], outcomes[0])
+        data: encodedBetData
       });
-      idBet = lp.bet(address(coreBase), amountOut, expiresAt, betData);
+      // Place the bet for the bettor address on the core azuro contract (single bet)
+      idBet = ILP(AZURO_LP).betFor(
+        bettorAddress,
+        AZURO_CORE,
+        amountOut,
+        expiresAt,
+        betData
+      );
+      emit BetPlaced(idBet, bettorAddress, referrerAddress, amountOut, AZURO_CORE);
     }
+  }
+
+  /**
+   * @notice Handles protocol fee deduction
+   * @param amount Amount to process
+   * @return Amount after fee deduction
+   */
+  function _handleProtocolFee(
+    uint256 amount,
+    uint256 protocolFeePercentage
+  ) internal returns (uint256) {
+    uint256 protocolFee = _calculatePercentage(amount, protocolFeePercentage);
+    if (protocolFee == 0) {
+      return amount;
+    }
+    IERC20(WETH).safeTransfer(protocolFeeRecipient, protocolFee);
+    uint256 amountAfterFee = amount - protocolFee;
+    return amountAfterFee;
+  }
+
+  /**
+   * @notice Handles referrer fee deduction
+   * @param amount Amount to process
+   * @return Amount after fee deduction
+   */
+  function _handleReferrerFee(
+    address referrer,
+    uint256 amount,
+    uint256 referrerFeePercentage
+  ) internal returns (uint256) {
+    uint256 referrerFee = _calculatePercentage(amount, referrerFeePercentage);
+    if (referrerFee == 0) {
+      return amount;
+    }
+    IERC20(WETH).safeTransfer(referrer, referrerFee);
+    uint256 amountAfterFee = amount - referrerFee;
+    return amountAfterFee;
   }
 
   /**
@@ -2607,183 +1602,10 @@ contract Sentinel is ReentrancyGuard, Pausable, IERC721Receiver {
     uint256 amount,
     uint256 basisPoints
   ) internal pure returns (uint256) {
-    if (basisPoints == 0) {
+    if (basisPoints == 0 || amount == 0) {
       return 0;
     }
-    if (basisPoints > BASIS_POINTS) {
-      revert InvalidReferralFeePercentage();
-    }
+    if (basisPoints > BASIS_POINTS) revert InvalidFeePercentage();
     return (amount * basisPoints) / BASIS_POINTS;
-  }
-
-  /**
-   * @notice Handles protocol fee deduction and approval for Across
-   * @param amount Amount to process
-   * @return Amount after fee deduction
-   */
-  function _handleProtocolFee(uint256 amount) internal returns (uint256) {
-    uint256 protocolFee = _calculatePercentage(amount, protocolFeePercentage);
-    IERC20(usdcAddress).safeTransfer(protocolFeeRecipient, protocolFee);
-    uint256 amountAfterFee = amount - protocolFee;
-    return amountAfterFee;
-  }
-
-  /**
-   * @notice Initiates the cross-chain transfer via Across bridge
-   * @param amountIn Amount of tokens to send
-   * @param amountOut Amount of tokens expected on the destination chain
-   * @param quoteTimestamp Timestamp for exclusivity
-   * @param exclusivityDeadline Deadline for exclusivity
-   * @param exclusivityRelayer Relayer address
-   */
-  function _sendToAcross(
-    uint256 amountIn,
-    uint256 amountOut,
-    uint32 quoteTimestamp,
-    uint32 exclusivityDeadline,
-    address exclusivityRelayer
-  ) internal {
-    V3SpokePoolInterface(acrossSpokePool).depositV3(
-      address(this),
-      controller,
-      usdcAddress,
-      usdcAddressDestination,
-      amountIn,
-      amountOut, //amount out is amount - total relayer fees
-      destinationChainId,
-      exclusivityRelayer,
-      quoteTimestamp,
-      uint32(block.timestamp + 18000), // 5 hours
-      exclusivityDeadline,
-      ""
-    );
-  }
-
-  /**
-   * @notice Internal function to process bet withdrawals
-   * @dev Handles payout retrieval, swaps, and bridge transfer
-   * @param idBet Bet ID to withdraw
-   * @param totalFeeAmount Amount to withdraw
-   * @param quoteTimestamp Timestamp for exclusivity
-   * @param exclusivityDeadline Deadline for exclusivity
-   * @param exclusivityRelayer Relayer address
-   * @param onlyWithdraw If true, only withdraws from Azuro without swapping or bridging
-   */
-  function _handleWithdraw(
-    uint256 idBet,
-    uint256 totalFeeAmount,
-    uint32 quoteTimestamp,
-    uint32 exclusivityDeadline,
-    address exclusivityRelayer,
-    bool isMultipleBet,
-    bool onlyWithdraw
-  ) internal {
-    // Step 1: Handle payout based on bet type
-    uint256 amountPayout;
-    if (isMultipleBet) {
-      // Multiple bet case
-      if (IERC721(expressAddress).ownerOf(idBet) != address(this)) {
-        revert NotSentinel();
-      }
-      amountPayout = lp.withdrawPayout(expressAddress, idBet);
-    } else {
-      // Single bet case
-      if (IERC721(azuroBet).ownerOf(idBet) != address(this)) {
-        revert NotSentinel();
-      }
-      amountPayout = lp.withdrawPayout(coreBase, idBet);
-    }
-
-    if (!onlyWithdraw) {
-      // Continue with swap and bridge operations
-      IERC20(usdtAddress).forceApprove(address(swapRouter), amountPayout);
-      uint256 amountOutAfterSwap = _swap(
-        usdtAddress,
-        usdcAddress,
-        amountPayout
-      );
-
-      // Step 2: Handle protocol fee and prepare for Across
-      uint256 amountForAcross = _handleProtocolFee(amountOutAfterSwap);
-
-      IERC20(usdcAddress).forceApprove(acrossSpokePool, amountForAcross);
-
-      // Check on the amount for across
-      if (totalFeeAmount >= amountForAcross) {
-        revert InvalidAmountForAcross();
-      }
-      uint256 amountOut = amountForAcross - totalFeeAmount;
-
-      
-      // Step 3: Call Across
-      _sendToAcross(
-        amountForAcross,
-        amountOut,
-        quoteTimestamp,
-        exclusivityDeadline,
-        exclusivityRelayer
-      );
-      
-    }
-  }
-
-  // Add this function to verify signatures
-  function _verifyControllerSignature(
-    uint256 idBet,
-    uint256 amountOut,
-    uint32 quoteTimestamp,
-    uint32 exclusivityDeadline,
-    address exclusivityRelayer,
-    bool isMultipleBet,
-    bool onlyWithdraw,
-    bytes memory signature
-  ) internal view {
-    // Create message hash that matches what controller signed
-    bytes32 messageHash = keccak256(
-      abi.encodePacked(
-        idBet,
-        amountOut,
-        quoteTimestamp,
-        exclusivityDeadline,
-        exclusivityRelayer,
-        isMultipleBet,
-        onlyWithdraw,
-        address(this)
-      )
-    );
-    // Create ethereum signed message hash
-    bytes32 ethSignedMessageHash = keccak256(
-      abi.encodePacked("\x19Ethereum Signed Message:\n32", messageHash)
-    );
-
-    // Extract v, r, s from signature using assembly
-    bytes32 r;
-    bytes32 s;
-    uint8 v;
-    assembly {
-      r := mload(add(signature, 0x20))
-      s := mload(add(signature, 0x40))
-      v := byte(0, mload(add(signature, 0x60)))
-    }
-
-    // Recover signer address
-    address signer = ecrecover(ethSignedMessageHash, v, r, s);
-
-    // Verify signer is controller
-    if (signer != controller) {
-      revert InvalidSignature();
-    }
-  }
-
-  /**
-   * @notice Implementation of IERC721Receiver
-   */
-  function onERC721Received(
-    address operator,
-    address from,
-    uint256 tokenId,
-    bytes calldata data
-  ) external override returns (bytes4) {
-    return this.onERC721Received.selector;
   }
 }

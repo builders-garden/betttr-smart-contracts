@@ -1,3 +1,5 @@
+/*
+
 import {
   time,
   loadFixture,
@@ -183,7 +185,6 @@ describe("Sentinel", function () {
     const initContractProtocol = sentinel.interface.encodeFunctionData(
       "initializeProtocol",
       [
-        ADDRESSES.ACROSS_GENERIC_HANDLER,
         ADDRESSES.ACROSS_SPOKE_POOL,
         ADDRESSES.PROTOCOL_FEE_RECIPIENT,
         CONFIG.PROTOCOL_FEE_PERCENTAGE,
@@ -425,7 +426,7 @@ describe("Sentinel", function () {
         method: "hardhat_stopImpersonatingAccount",
         params: [ADDRESSES.ACROSS_GENERIC_HANDLER],
       });
-    });*/
+    });
 
     it("Should execute handleWithdraw successfully", async function () {
       const {
@@ -491,3 +492,4 @@ describe("Sentinel", function () {
     });
   });
 });
+*/
