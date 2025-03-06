@@ -22,7 +22,17 @@ contract AzuroHandler is Pausable {
     uint256 indexed idBet,
     address indexed bettorAddress,
     address indexed referrerAddress,
+    uint256 amountIn,
     address poolAddress
+  );
+  event FeePaid(
+    uint256 indexed idBet,
+    address indexed bettorAddress,
+    address indexed referrerAddress,
+    uint256 amountIn,
+    uint256 amountOut,
+    uint256 protocolFee,
+    uint256 referrerFee
   );
 
   // ======================== Custom Errors ========================
@@ -32,16 +42,17 @@ contract AzuroHandler is Pausable {
   error InvalidProtocolFeeRecipientAddress();
   error InvalidAmount();
   error InvalidBetData();
-  error InvalidReferrerFeePercentage();
+  error InvalidFeePercentage();
   error DuplicateConditionIds();
   error InvalidReferralFeePercentage();
   error InvalidProtocolFeePercentage();
+  error InvalidBettorAddress();
 
   // ======================== Constants ========================
   uint256 private constant BASIS_POINTS = 10000; // 100% (100 * 100 = 10000)
-  uint64  private constant MIN_ODDS = 1;
-  uint256 private constant MIN_REFERRER_FEE_PERCENTAGE = 1; // 0.1%
-  uint256 private constant MAX_PROTOCOL_FEE_PERCENTAGE = 100; // 10%
+  uint64  private constant MIN_ODDS = 1000000000000; // min odds Azuro (1*10^12)
+  uint256 private constant MAX_REFERRER_FEE_PERCENTAGE = 500; // 5%
+  uint256 private constant MAX_PROTOCOL_FEE_PERCENTAGE = 500; // 5%
   address private constant WETH = 0x4200000000000000000000000000000000000006; 
   address private constant AZURO_CORE = 0xf5A6B7940cbdb80F294f1eAc59575562966aa3FC; 
   address private constant AZURO_EXPRESS = 0x4731Bb0D12c4f992Cf02BDc7A48e8656d0E382Ed; 
@@ -86,7 +97,6 @@ contract AzuroHandler is Pausable {
    */
   function pause() external onlyOperator {
     _pause();
-    emit Paused(msg.sender);
   }
 
   /**
@@ -95,7 +105,6 @@ contract AzuroHandler is Pausable {
    */
   function unpause() external onlyOperator {
     _unpause();
-    emit Unpaused(msg.sender);
   }
 
   // ======================== Setter Functions ========================
@@ -106,7 +115,7 @@ contract AzuroHandler is Pausable {
    */
   function setOperator(
     address _operator
-  ) external onlyOperator whenNotPausedOverride {
+  ) external onlyOperator {
     if (_operator == address(0)) revert InvalidOperatorAddress();
     operator = _operator;
   }
@@ -118,7 +127,7 @@ contract AzuroHandler is Pausable {
    */
   function setProtocolFeeRecipient(
     address _protocolFeeRecipient
-  ) external onlyOperator whenNotPausedOverride {
+  ) external onlyOperator {
     if (_protocolFeeRecipient == address(0)) revert InvalidProtocolFeeRecipientAddress();
     protocolFeeRecipient = _protocolFeeRecipient;
   }
@@ -144,18 +153,20 @@ contract AzuroHandler is Pausable {
     uint64 minOdds,
     uint256[] memory conditions,
     uint64[] memory outcomes
-  ) external whenNotPausedOverride {
+  ) external whenNotPausedOverride returns (uint256 idBet) {
     // Validate amount
     if (amountIn == 0) revert InvalidAmount();
+    // Validate bettor address
+    if (bettorAddress == address(0)) revert InvalidBettorAddress();
     // Validate array lengths match
     if (conditions.length != outcomes.length || conditions.length == 0) revert InvalidBetData();
     // Validate protocol fee percentage
     if (protocolFeePercentage > MAX_PROTOCOL_FEE_PERCENTAGE) revert InvalidProtocolFeePercentage();
     // Validate referrer fee percentage only if referrer address is provided
-    if (referrerAddress != address(0) && referrerFeePercentage < MIN_REFERRER_FEE_PERCENTAGE) 
-      revert InvalidReferrerFeePercentage();
+    if (referrerAddress != address(0) && referrerFeePercentage > MAX_REFERRER_FEE_PERCENTAGE) 
+      revert InvalidReferralFeePercentage();
 
-    //Transfer the tokens to the contract
+    // Transfer the tokens to the contract
     IERC20(WETH).safeTransferFrom(msg.sender, address(this), amountIn);
 
     // handle protocol fee function
@@ -174,7 +185,7 @@ contract AzuroHandler is Pausable {
     IERC20(WETH).approve(AZURO_LP, amountInAfterReferrerFee);
 
     // Place bets for the player
-    _bet(
+    idBet = _bet(
       bettorAddress,
       referrerAddress,
       uint128(amountInAfterReferrerFee),
@@ -183,6 +194,7 @@ contract AzuroHandler is Pausable {
       minOdds,
       conditions.length > 1 // isExpress = true if multiple bets
     );
+    emit FeePaid(idBet, bettorAddress, referrerAddress, amountIn, amountInAfterReferrerFee, protocolFeePercentage, referrerFeePercentage);
   }
 
   // ======================== Internal Helper Functions ========================
@@ -204,7 +216,7 @@ contract AzuroHandler is Pausable {
     uint64[] memory outcomes,
     uint64 minOdds,
     bool isMultiple
-  ) internal returns (uint256 idBet, bool isMultipleBet) {
+  ) internal returns (uint256 idBet) {
     if (minOdds < MIN_ODDS) {
       minOdds = MIN_ODDS;
     }
@@ -218,28 +230,20 @@ contract AzuroHandler is Pausable {
 
       // Fill the array with bet data
       for (uint256 i = 0; i < conditions.length; i++) {
-        // Validate unique condition IDs
-        for (uint256 j = 0; j < i; j++) {
-          if (conditions[i] == conditions[j]) revert DuplicateConditionIds();
-        }
-
         subBets[i] = ICoreBase.CoreBetData({
           conditionId: conditions[i],
           outcomeId: outcomes[i]
         });
       }
-
       // Encode the CoreBetData array
       bytes memory encodedBetData = abi.encode(subBets);
-
       // Create the BetData struct
       IBet.BetData memory betData = IBet.BetData({
         affiliate: protocolFeeRecipient,
         minOdds: minOdds,
         data: encodedBetData
       });
-
-      // Place the bet directly without try-catch
+      // Place the bet for the bettor address on the express azuro contract (multiple bets)
       idBet = ILP(AZURO_LP).betFor(
         bettorAddress,
         AZURO_EXPRESS,
@@ -247,15 +251,17 @@ contract AzuroHandler is Pausable {
         expiresAt,
         betData
       );
-      isMultipleBet = true;
-      emit BetPlaced(idBet, bettorAddress, referrerAddress, AZURO_EXPRESS);
+      emit BetPlaced(idBet, bettorAddress, referrerAddress, amountOut, AZURO_EXPRESS);
     } else {
+      // Encode the bet data for the single bet
+      bytes memory encodedBetData = abi.encode(conditions[0], outcomes[0]);
       // Single bet case remains unchanged
       IBet.BetData memory betData = IBet.BetData({
-        affiliate: address(0), // affiliate
+        affiliate: protocolFeeRecipient,
         minOdds: minOdds,
-        data: abi.encode(conditions[0], outcomes[0])
+        data: encodedBetData
       });
+      // Place the bet for the bettor address on the core azuro contract (single bet)
       idBet = ILP(AZURO_LP).betFor(
         bettorAddress,
         AZURO_CORE,
@@ -263,13 +269,12 @@ contract AzuroHandler is Pausable {
         expiresAt,
         betData
       );
-      isMultipleBet = false;
-      emit BetPlaced(idBet, bettorAddress, referrerAddress, AZURO_CORE);
+      emit BetPlaced(idBet, bettorAddress, referrerAddress, amountOut, AZURO_CORE);
     }
   }
 
   /**
-   * @notice Handles protocol fee deduction and approval for Across
+   * @notice Handles protocol fee deduction
    * @param amount Amount to process
    * @return Amount after fee deduction
    */
@@ -287,7 +292,7 @@ contract AzuroHandler is Pausable {
   }
 
   /**
-   * @notice Handles referrer fee deduction and approval for Across
+   * @notice Handles referrer fee deduction
    * @param amount Amount to process
    * @return Amount after fee deduction
    */
@@ -319,7 +324,8 @@ contract AzuroHandler is Pausable {
     if (basisPoints == 0 || amount == 0) {
       return 0;
     }
-    if (basisPoints > BASIS_POINTS) revert InvalidReferralFeePercentage();
+    if (basisPoints > BASIS_POINTS) revert InvalidFeePercentage();
     return (amount * basisPoints) / BASIS_POINTS;
   }
 }
+
